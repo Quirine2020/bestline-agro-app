@@ -506,6 +506,7 @@ const ProductsPage = () => {
 
 const ContactUsPage = () => {
   const [formData, setFormData] = useState({ name: '', email: '', subject: '', message: '' });
+  const [submitMessage, setSubmitMessage] = useState('');
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -514,8 +515,9 @@ const ContactUsPage = () => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    alert('Thank you for your message! We will get back to you soon.');
+    setSubmitMessage('Thank you for your message! We will get back to you soon.');
     setFormData({ name: '', email: '', subject: '', message: '' });
+    setTimeout(() => setSubmitMessage(''), 5000); // Clear message after 5 seconds
   };
 
   return (
@@ -528,6 +530,11 @@ const ContactUsPage = () => {
           <p className="text-gray-700 mb-4">
             Have questions about our products or services? Feel free to reach out to us using the form below or through our contact details.
           </p>
+          {submitMessage && (
+            <div className="p-3 bg-green-100 text-green-700 rounded-md mb-4">
+              {submitMessage}
+            </div>
+          )}
           <form onSubmit={handleSubmit}>
             <Input label="Your Name" name="name" value={formData.name} onChange={handleChange} required />
             <Input label="Your Email" name="email" type="email" value={formData.email} onChange={handleChange} required />
@@ -562,15 +569,11 @@ const ContactUsPage = () => {
           <div className="mt-4">
             <h4 className="text-xl font-semibold text-gray-800 mb-2">Follow Us</h4>
             <div className="flex space-x-4 text-2xl">
-              {/*
-                The 'jsx-a11y/anchor-is-valid' warning for href="#" is acknowledged.
-                For a production application, these should be replaced with actual URLs.
-                For demonstration purposes, "#" is used as a placeholder.
-              */}
-              <a href="#" className="text-blue-600 hover:text-blue-800"><i className="fab fa-facebook"></i></a>
-              <a href="#" className="text-blue-400 hover:text-blue-600"><i className="fab fa-twitter"></i></a>
-              <a href="#" className="text-red-600 hover:text-red-800"><i className="fab fa-instagram"></i></a>
-              <a href="#" className="text-blue-700 hover:text-blue-900"><i className="fab fa-linkedin"></i></a>
+              {/* Changed <a> to <div> with onClick for social media links */}
+              <div onClick={() => window.open('https://facebook.com/bestlineagro', '_blank')} className="text-blue-600 hover:text-blue-800 cursor-pointer"><i className="fab fa-facebook"></i></div>
+              <div onClick={() => window.open('https://twitter.com/bestlineagro', '_blank')} className="text-blue-400 hover:text-blue-600 cursor-pointer"><i className="fab fa-twitter"></i></div>
+              <div onClick={() => window.open('https://instagram.com/bestlineagro', '_blank')} className="text-red-600 hover:text-red-800 cursor-pointer"><i className="fab fa-instagram"></i></div>
+              <div onClick={() => window.open('https://linkedin.com/company/bestlineagro', '_blank')} className="text-blue-700 hover:text-blue-900 cursor-pointer"><i className="fab fa-linkedin"></i></div>
             </div>
           </div>
           <div className="mt-6">
@@ -685,15 +688,26 @@ const ClientDashboard = () => {
 
 const ClientOrderHistory = () => {
   const { currentUser, orders, getProductById } = useContext(AppContext);
+  const [message, setMessage] = useState('');
 
   if (!currentUser || currentUser.role !== 'client') return null;
 
   const clientOrders = orders.filter(order => order.clientId === currentUser.id);
 
+  const handleDownloadInvoice = (order) => {
+    setMessage(`Invoice for Order ID: ${order.id}\nStatus: ${order.status}\nTotal: Ksh ${order.totalAmount.toLocaleString()}\n\nItems:\n${order.items.map(item => `${getProductById(item.productId)?.name || 'N/A'} x ${item.quantity} @ Ksh ${item.unitPrice}`).join('\n')}`);
+    setTimeout(() => setMessage(''), 5000); // Clear message after 5 seconds
+  };
+
   return (
     <div className="p-4 md:p-8">
       <h2 className="text-3xl font-bold text-green-800 mb-6">Your Order History</h2>
       <Card>
+        {message && (
+          <div className="p-3 bg-blue-100 text-blue-700 rounded-md mb-4 whitespace-pre-wrap">
+            {message}
+          </div>
+        )}
         <Table
           headers={['Order ID', 'Date', 'Items', 'Total Amount (Ksh)', 'Status', 'Invoice']}
           data={clientOrders.sort((a, b) => new Date(b.orderDate) - new Date(a.orderDate))}
@@ -720,7 +734,7 @@ const ClientOrderHistory = () => {
                 </span>
               </td>
               <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                <Button onClick={() => alert(`Invoice for Order ID: ${order.id}\nStatus: ${order.status}\nTotal: Ksh ${order.totalAmount.toLocaleString()}\n\nItems:\n${order.items.map(item => `${getProductById(item.productId)?.name || 'N/A'} x ${item.quantity} @ Ksh ${item.unitPrice}`).join('\n')}`)} className="bg-purple-600 hover:bg-purple-700">Download Invoice</Button>
+                <Button onClick={() => handleDownloadInvoice(order)} className="bg-purple-600 hover:bg-purple-700">View Invoice</Button>
               </td>
             </tr>
           )}
@@ -776,6 +790,7 @@ const PlaceNewOrder = () => {
     const newOrder = placeOrder(currentUser.id, itemsToOrder);
     setMessage(`Order ${newOrder.id} placed successfully! Total: Ksh ${newOrder.totalAmount.toLocaleString()}. Status: ${newOrder.status}`);
     setSelectedProducts({}); // Clear cart
+    setTimeout(() => setMessage(''), 5000); // Clear message after 5 seconds
   };
 
   return (
@@ -1087,6 +1102,8 @@ const AdminSalesPurchases = () => {
   const { products, sales, purchases, recordSale, recordPurchase, getProductById, currentUser } = useContext(AppContext);
   const [showAddSaleForm, setShowAddSaleForm] = useState(false);
   const [showAddPurchaseForm, setShowAddPurchaseForm] = useState(false);
+  const [saleMessage, setSaleMessage] = useState('');
+  const [purchaseMessage, setPurchaseMessage] = useState('');
 
   const [newSale, setNewSale] = useState({
     type: 'walk-in', customerName: '', productId: '', quantity: '', paymentMethod: 'Cash', date: new Date().toISOString().split('T')[0], isCredit: false, amountDue: '', dueDate: ''
@@ -1107,9 +1124,10 @@ const AdminSalesPurchases = () => {
 
   const handleSaleSubmit = (e) => {
     e.preventDefault();
+    setSaleMessage(''); // Clear previous messages
     const product = getProductById(newSale.productId);
-    if (!product) { alert('Product not found.'); return; }
-    if (parseInt(newSale.quantity) > product.stock) { alert('Quantity exceeds stock!'); return; }
+    if (!product) { setSaleMessage('Error: Product not found.'); return; }
+    if (parseInt(newSale.quantity) > product.stock) { setSaleMessage('Error: Quantity exceeds stock!'); return; }
 
     const saleData = {
       ...newSale,
@@ -1119,12 +1137,15 @@ const AdminSalesPurchases = () => {
       paid: !newSale.isCredit,
     };
     recordSale(saleData);
+    setSaleMessage('Sale recorded successfully!');
     setNewSale({ type: 'walk-in', customerName: '', productId: '', quantity: '', paymentMethod: 'Cash', date: new Date().toISOString().split('T')[0], isCredit: false, amountDue: '', dueDate: '' });
     setShowAddSaleForm(false);
+    setTimeout(() => setSaleMessage(''), 5000); // Clear message after 5 seconds
   };
 
   const handlePurchaseSubmit = (e) => {
     e.preventDefault();
+    setPurchaseMessage(''); // Clear previous messages
     const purchaseData = {
       ...newPurchase,
       quantity: parseInt(newPurchase.quantity),
@@ -1133,8 +1154,10 @@ const AdminSalesPurchases = () => {
       paid: !newPurchase.isCredit,
     };
     recordPurchase(purchaseData);
+    setPurchaseMessage('Purchase recorded successfully!');
     setNewPurchase({ supplierName: '', productId: '', quantity: '', cost: '', date: new Date().toISOString().split('T')[0], isCredit: false, amountDue: '', dueDate: '' });
     setShowAddPurchaseForm(false);
+    setTimeout(() => setPurchaseMessage(''), 5000); // Clear message after 5 seconds
   };
 
   const canRecord = currentUser && ['admin', 'manager', 'cashier'].includes(currentUser.role);
@@ -1152,6 +1175,17 @@ const AdminSalesPurchases = () => {
         <Button onClick={() => setShowAddSaleForm(true)}>Record New Sale</Button>
         {canManagePurchases && <Button onClick={() => setShowAddPurchaseForm(true)} className="bg-blue-600 hover:bg-blue-700">Record New Purchase</Button>}
       </div>
+
+      {saleMessage && (
+        <div className={`p-3 rounded-md mb-4 ${saleMessage.includes('Error') ? 'bg-red-100 text-red-700 border border-red-400' : 'bg-green-100 text-green-700 border border-green-400'}`}>
+          {saleMessage}
+        </div>
+      )}
+      {purchaseMessage && (
+        <div className={`p-3 rounded-md mb-4 ${purchaseMessage.includes('Error') ? 'bg-red-100 text-red-700 border border-red-400' : 'bg-green-100 text-green-700 border border-green-400'}`}>
+          {purchaseMessage}
+        </div>
+      )}
 
       {showAddSaleForm && (
         <Card title="Record New Sale" className="mb-8">
@@ -1273,10 +1307,12 @@ const AdminSalesPurchases = () => {
 
 const AdminOrderManagement = () => {
   const { orders, updateOrderStatus, getProductById, getUserById, currentUser } = useContext(AppContext);
+  const [message, setMessage] = useState('');
 
   const handleStatusChange = (orderId, newStatus) => {
     updateOrderStatus(orderId, newStatus);
-    alert(`Order ${orderId} status updated to ${newStatus}.`);
+    setMessage(`Order ${orderId} status updated to ${newStatus}.`);
+    setTimeout(() => setMessage(''), 5000); // Clear message after 5 seconds
     // In a real app, send email/SMS notification here
   };
 
@@ -1291,6 +1327,11 @@ const AdminOrderManagement = () => {
       <h2 className="text-3xl font-bold mb-6 text-gray-900">Client Order Management</h2>
 
       <Card title="All Client Orders">
+        {message && (
+          <div className="p-3 bg-green-100 text-green-700 rounded-md mb-4">
+            {message}
+          </div>
+        )}
         <Table
           headers={['Order ID', 'Client Name', 'Order Date', 'Items', 'Total Amount (Ksh)', 'Status', 'Actions']}
           data={orders.sort((a, b) => new Date(b.orderDate) - new Date(a.orderDate))}
@@ -1348,6 +1389,7 @@ const AdminExpensesTracking = () => {
   const [newExpense, setNewExpense] = useState({
     description: '', category: 'Transport', amount: '', date: new Date().toISOString().split('T')[0]
   });
+  const [message, setMessage] = useState('');
 
   const expenseCategories = [
     { value: 'Transport', label: 'Transport' },
@@ -1368,8 +1410,10 @@ const AdminExpensesTracking = () => {
   const handleSubmit = (e) => {
     e.preventDefault();
     addExpense({ ...newExpense, amount: parseFloat(newExpense.amount) });
+    setMessage('Expense added successfully!');
     setNewExpense({ description: '', category: 'Transport', amount: '', date: new Date().toISOString().split('T')[0] });
     setShowAddForm(false);
+    setTimeout(() => setMessage(''), 5000); // Clear message after 5 seconds
   };
 
   const canManage = currentUser && ['admin', 'manager', 'accountant'].includes(currentUser.role);
@@ -1391,6 +1435,12 @@ const AdminExpensesTracking = () => {
       <div className="mb-6">
         <Button onClick={() => setShowAddForm(true)}>Add New Expense</Button>
       </div>
+
+      {message && (
+        <div className="p-3 bg-green-100 text-green-700 rounded-md mb-4">
+          {message}
+        </div>
+      )}
 
       {showAddForm && (
         <Card title="Add New Expense" className="mb-8">
@@ -1451,6 +1501,10 @@ const AdminAssetsLiabilitiesDebt = () => {
   const [newLiability, setNewLiability] = useState({
     name: '', type: 'Loan', amount: '', interestRate: '', repaymentDate: '', dueDate: ''
   });
+  const [assetMessage, setAssetMessage] = useState('');
+  const [liabilityMessage, setLiabilityMessage] = useState('');
+  const [customerDebtMessage, setCustomerDebtMessage] = useState('');
+  const [supplierDebtMessage, setSupplierDebtMessage] = useState('');
 
   const customerDebts = getCustomerDebts();
   const supplierDebts = getSupplierDebts();
@@ -1467,8 +1521,10 @@ const AdminAssetsLiabilitiesDebt = () => {
       purchaseValue: parseFloat(newAsset.purchaseValue),
       depreciationRate: parseFloat(newAsset.depreciationRate)
     });
+    setAssetMessage('Asset added successfully!');
     setNewAsset({ name: '', purchaseValue: '', purchaseDate: new Date().toISOString().split('T')[0], depreciationRate: '' });
     setShowAddAssetForm(false);
+    setTimeout(() => setAssetMessage(''), 5000); // Clear message after 5 seconds
   };
 
   const handleLiabilityInputChange = (e) => {
@@ -1483,19 +1539,25 @@ const AdminAssetsLiabilitiesDebt = () => {
       amount: parseFloat(newLiability.amount),
       interestRate: newLiability.type === 'Loan' ? parseFloat(newLiability.interestRate) : undefined,
     });
+    setLiabilityMessage('Liability added successfully!');
     setNewLiability({ name: '', type: 'Loan', amount: '', interestRate: '', repaymentDate: '', dueDate: '' });
     setShowAddLiabilityForm(false);
+    setTimeout(() => setLiabilityMessage(''), 5000); // Clear message after 5 seconds
   };
 
   const handleMarkCustomerPaid = (id) => {
     if (window.confirm('Are you sure you want to mark this customer debt as paid?')) {
       markCustomerDebtPaid(id);
+      setCustomerDebtMessage('Customer debt marked as paid!');
+      setTimeout(() => setCustomerDebtMessage(''), 5000); // Clear message after 5 seconds
     }
   };
 
   const handleMarkSupplierPaid = (id) => {
     if (window.confirm('Are you sure you want to mark this supplier debt as paid?')) {
       markSupplierDebtPaid(id);
+      setSupplierDebtMessage('Supplier debt marked as paid!');
+      setTimeout(() => setSupplierDebtMessage(''), 5000); // Clear message after 5 seconds
     }
   };
 
@@ -1513,6 +1575,17 @@ const AdminAssetsLiabilitiesDebt = () => {
         <Button onClick={() => setShowAddAssetForm(true)}>Add New Asset</Button>
         <Button onClick={() => setShowAddLiabilityForm(true)} className="bg-blue-600 hover:bg-blue-700">Add New Liability</Button>
       </div>
+
+      {assetMessage && (
+        <div className="p-3 bg-green-100 text-green-700 rounded-md mb-4">
+          {assetMessage}
+        </div>
+      )}
+      {liabilityMessage && (
+        <div className="p-3 bg-green-100 text-green-700 rounded-md mb-4">
+          {liabilityMessage}
+        </div>
+      )}
 
       {showAddAssetForm && (
         <Card title="Add New Asset" className="mb-8">
@@ -1588,6 +1661,11 @@ const AdminAssetsLiabilitiesDebt = () => {
       </Card>
 
       <Card title="Debt Management">
+        {customerDebtMessage && (
+          <div className="p-3 bg-green-100 text-green-700 rounded-md mb-4">
+            {customerDebtMessage}
+          </div>
+        )}
         <h3 className="text-xl font-semibold mb-4 text-gray-800">Customer Debts (Accounts Receivable)</h3>
         <Table
           headers={['Customer Name', 'Product', 'Amount Due (Ksh)', 'Due Date', 'Status', 'Actions']}
@@ -1608,6 +1686,11 @@ const AdminAssetsLiabilitiesDebt = () => {
           )}
         />
 
+        {supplierDebtMessage && (
+          <div className="p-3 bg-green-100 text-green-700 rounded-md mt-4 mb-4">
+            {supplierDebtMessage}
+          </div>
+        )}
         <h3 className="text-xl font-semibold mt-8 mb-4 text-gray-800">Business Debts (Accounts Payable)</h3>
         <Table
           headers={['Supplier Name', 'Product', 'Amount Due (Ksh)', 'Due Date', 'Status', 'Actions']}
@@ -1788,7 +1871,7 @@ const App = () => {
       case 'login':
         return <AuthForm type="login" />;
       case 'signup':
-        return <AuthForm type="signup" />; {/* Fixed: Added missing closing double quote */}
+        return <AuthForm type="signup" />;
       case 'client-dashboard':
         return <ClientDashboard />;
       case 'client-dashboard-order-history':
