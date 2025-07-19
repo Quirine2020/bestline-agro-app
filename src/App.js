@@ -394,18 +394,6 @@ const Homepage = () => {
         </Button>
       </div>
 
-      <h3 className="text-3xl font-bold text-green-800 mb-8">Featured Products</h3>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto mb-12">
-        {featuredProducts.map(product => (
-          <Card key={product.id} className="transform transition duration-300 hover:scale-105">
-            <h4 className="text-2xl font-semibold text-gray-800 mb-2">{product.name}</h4>
-            <p className="text-gray-600 mb-4 line-clamp-3">{product.description}</p>
-            <p className="text-green-700 font-bold text-xl mb-2">Ksh {product.price.toLocaleString()}</p>
-            <Button onClick={() => setCurrentPage('products')} className="w-full">Learn More</Button>
-          </Card>
-        ))}
-      </div>
-
       <h3 className="text-3xl font-bold text-green-800 mb-8">Thriving Harvests with BestLine</h3>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-6xl mx-auto">
         <div className="rounded-lg shadow-md overflow-hidden">
@@ -435,6 +423,17 @@ const Homepage = () => {
           />
           <p className="p-4 text-lg font-semibold text-gray-800">Lush Rose Farm</p>
         </div>
+              
+      <h3 className="text-3xl font-bold text-green-800 mb-8">Featured Products</h3>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto mb-12">
+        {featuredProducts.map(product => (
+          <Card key={product.id} className="transform transition duration-300 hover:scale-105">
+            <h4 className="text-2xl font-semibold text-gray-800 mb-2">{product.name}</h4>
+            <p className="text-gray-600 mb-4 line-clamp-3">{product.description}</p>
+            <p className="text-green-700 font-bold text-xl mb-2">Ksh {product.price.toLocaleString()}</p>
+            <Button onClick={() => setCurrentPage('products')} className="w-full">Learn More</Button>
+          </Card>
+        ))}
       </div>
     </div>
   );
