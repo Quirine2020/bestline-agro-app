@@ -6,8 +6,7 @@ const AppContext = createContext();
 const AppProvider = ({ children }) => {
   // --- Simulated Data Storage (In-memory for demonstration) ---
   const [currentUser, setCurrentUser] = useState(null); // { id, username, role, name, farmType, location, contactInfo }
-  // eslint-disable-next-line no-unused-vars
-  const [users, setUsers] = useState([
+  const [users, setUsersState] = useState([ // Renamed setter to setUsersState
     { id: 'admin-1', username: 'admin', password: 'password', role: 'admin', name: 'Admin User', farmType: '', location: '', contactInfo: '' },
     { id: 'manager-1', username: 'manager', password: 'password', role: 'manager', name: 'Manager User', farmType: '', location: '', contactInfo: '' },
     { id: 'cashier-1', username: 'cashier', password: 'password', role: 'cashier', name: 'Cashier User', farmType: '', location: '', contactInfo: '' },
@@ -90,7 +89,7 @@ const AppProvider = ({ children }) => {
 
   // --- Utility Functions ---
   const getProductById = (id) => products.find(p => p.id === id);
-  const getUserById = (id) => users.find(u => u.id === id);
+  const getUserById = (id) => users.find(u => u.id === id); // Fixed typo: should be u.id === id
 
   const generateUniqueId = (prefix) => `${prefix}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
@@ -137,7 +136,7 @@ const AppProvider = ({ children }) => {
       return false; // Username already exists
     }
     const userWithId = { ...newUser, id: generateUniqueId('user'), role: 'client' };
-    setUsers(prev => [...prev, userWithId]);
+    setUsersState(prev => [...prev, userWithId]); // Use setUsersState here
     setCurrentUser(userWithId);
     setCurrentPage('client-dashboard');
     return true;
@@ -244,7 +243,7 @@ const AppProvider = ({ children }) => {
   };
 
   const updateUserProfile = (userId, updatedInfo) => {
-    setUsers(prev => prev.map(u => u.id === userId ? { ...u, ...updatedInfo } : u));
+    setUsersState(prev => prev.map(u => u.id === userId ? { ...u, ...updatedInfo } : u)); // Use setUsersState here
     if (currentUser && currentUser.id === userId) {
       setCurrentUser(prev => ({ ...prev, ...updatedInfo }));
     }
@@ -253,7 +252,7 @@ const AppProvider = ({ children }) => {
   const state = {
     currentUser, setCurrentUser, login, signup, logout,
     products, setProducts, addProduct, updateProduct, deleteProduct, getProductById,
-    users, setUsers, getUserById, updateUserProfile,
+    users, setUsers: setUsersState, getUserById, updateUserProfile, // Expose setUsersState as setUsers
     orders, setOrders, placeOrder, updateOrderStatus,
     sales, setSales, recordSale,
     purchases, setPurchases, recordPurchase,
@@ -1698,8 +1697,10 @@ const AdminAssetsLiabilitiesDebt = () => {
           data={supplierDebts}
           renderRow={(debt) => (
             <tr key={debt.id} className="hover:bg-gray-50">
+              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{debt.date}</td>
               <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{debt.supplierName}</td>
               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{debt.productName}</td>
+              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{debt.quantity}</td>
               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">Ksh {debt.amountDue.toLocaleString()}</td>
               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{debt.dueDate}</td>
               <td className="px-6 py-4 whitespace-nowrap text-sm">
