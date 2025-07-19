@@ -251,10 +251,20 @@ const AppProvider = ({ children }) => {
     }
   };
 
+  // NEW: Function to delete a user
+  const deleteUser = (userIdToDelete) => {
+    setUsersState(prev => prev.filter(u => u.id !== userIdToDelete));
+    // If the deleted user was the current user, log them out
+    if (currentUser && currentUser.id === userIdToDelete) {
+      setCurrentUser(null);
+      setCurrentPage('home');
+    }
+  };
+
   const state = {
     currentUser, setCurrentUser, login, signup, logout,
     products, setProducts, addProduct, updateProduct, deleteProduct, getProductById,
-    users, getUserById, updateUserProfile, // Removed 'setUsers' from here to resolve the ESLint warning
+    users, getUserById, updateUserProfile, deleteUser, // Added deleteUser to context
     orders, setOrders, placeOrder, updateOrderStatus,
     sales, setSales, recordSale,
     purchases, setPurchases, recordPurchase,
@@ -1775,7 +1785,7 @@ const AdminProfitLossReports = () => {
 };
 
 const AdminUserRoleManagement = () => {
-  const { users, setUsers, updateUserProfile, currentUser } = useContext(AppContext);
+  const { users, updateUserProfile, deleteUser, currentUser } = useContext(AppContext); // Removed setUsers from destructuring
   const [editingUser, setEditingUser] = useState(null);
   const [newRole, setNewRole] = useState('');
   const [message, setMessage] = useState('');
@@ -1805,6 +1815,14 @@ const AdminUserRoleManagement = () => {
     }
   };
 
+  const handleDeleteUser = (userId) => {
+    if (window.confirm('Are you sure you want to delete this user? This action cannot be undone.')) {
+      deleteUser(userId);
+      setMessage('User deleted successfully!');
+      setTimeout(() => setMessage(''), 3000);
+    }
+  };
+
   const canManage = currentUser && currentUser.role === 'admin';
 
   if (!canManage) {
@@ -1827,7 +1845,7 @@ const AdminUserRoleManagement = () => {
           />
           <div className="flex space-x-4">
             <Button onClick={handleSaveRole}>Save Role</Button>
-            <Button onClick={() => setEditingUser(null)} className="bg-gray-500 hover:bg-gray-600">Cancel</Button>
+            <Button type="button" onClick={() => setEditingUser(null)} className="bg-gray-500 hover:bg-gray-600">Cancel</Button>
           </div>
         </Card>
       )}
@@ -1842,7 +1860,11 @@ const AdminUserRoleManagement = () => {
               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{user.name || 'N/A'}</td>
               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 capitalize">{user.role}</td>
               <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                <Button onClick={() => handleEditRole(user)} className="bg-indigo-600 hover:bg-indigo-700">Edit Role</Button>
+                <Button onClick={() => handleEditRole(user)} className="bg-indigo-600 hover:bg-indigo-700 mr-2">Edit Role</Button>
+                {/* Only allow deletion for non-admin users and not the current logged-in user */}
+                {user.role !== 'admin' && user.id !== currentUser.id && (
+                  <Button onClick={() => handleDeleteUser(user.id)} className="bg-red-600 hover:bg-red-700">Delete User</Button>
+                )}
               </td>
             </tr>
           )}
