@@ -254,7 +254,7 @@ const AppProvider = ({ children }) => {
   const state = {
     currentUser, setCurrentUser, login, signup, logout,
     products, setProducts, addProduct, updateProduct, deleteProduct, getProductById,
-    users, getUserById, updateUserProfile, // Removed setUsers from here to avoid linting warning
+    users, getUserById, updateUserProfile, // Removed 'setUsers' from here to resolve the ESLint warning
     orders, setOrders, placeOrder, updateOrderStatus,
     sales, setSales, recordSale,
     purchases, setPurchases, recordPurchase,
@@ -570,17 +570,13 @@ const ContactUsPage = () => {
           </p>
           <div className="mt-4">
             <h4 className="text-xl font-semibold text-gray-800 mb-2">Follow Us</h4>
-            <div className="flex space-x-4 text-2xl">
-              {/* Changed <a> to <div> with onClick for social media links */}
-              <div onClick={() => window.open('https://facebook.com/bestlineagro', '_blank')} className="text-blue-600 hover:text-blue-800 cursor-pointer"><i className="fab fa-facebook"></i></div>
-              <div onClick={() => window.open('https://twitter.com/bestlineagro', '_blank')} className="text-blue-400 hover:text-blue-600 cursor-pointer"><i className="fab fa-twitter"></i></div>
-              <div onClick={() => window.open('https://instagram.com/bestlineagro', '_blank')} className="text-red-600 hover:text-red-800 cursor-pointer"><i className="fab fa-instagram"></i></div>
-              <div onClick={() => window.open('https://linkedin.com/company/bestlineagro', '_blank')} className="text-blue-700 hover:text-blue-900 cursor-pointer"><i className="fab fa-linkedin"></i></div>
-            </div>
+            <div onClick={() => window.open('https://facebook.com/bestlineagro', '_blank')} className="text-blue-600 hover:text-blue-800 cursor-pointer"><i className="fab fa-facebook"></i></div>
+            <div onClick={() => window.open('https://twitter.com/bestlineagro', '_blank')} className="text-blue-400 hover:text-blue-600 cursor-pointer"><i className="fab fa-twitter"></i></div>
+            <div onClick={() => window.open('https://instagram.com/bestlineagro', '_blank')} className="text-red-600 hover:text-red-800 cursor-pointer"><i className="fab fa-instagram"></i></div>
+            <div onClick={() => window.open('https://linkedin.com/company/bestlineagro', '_blank')} className="text-blue-700 hover:text-blue-900 cursor-pointer"><i className="fab fa-linkedin"></i></div>
           </div>
           <div className="mt-6">
             <h4 className="text-xl font-semibold text-gray-800 mb-2">Our Location</h4>
-            {/* Placeholder for Google Map */}
             <div className="bg-gray-200 h-48 rounded-md flex items-center justify-center text-gray-600">
               [Google Map Placeholder]
             </div>
@@ -676,7 +672,6 @@ const ClientDashboard = () => {
         </Card>
         <Card title="New Order" className="bg-green-50">
           <p>Browse our products and place a new order.</p>
-          {/* Changed className for better visibility */}
           <Button onClick={() => setCurrentPage('client-dashboard-place-order')} className="mt-4 bg-blue-600 hover:bg-blue-700">Place Order</Button>
         </Card>
         <Card title="Order History" className="bg-yellow-50">
