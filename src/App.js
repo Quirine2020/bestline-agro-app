@@ -157,7 +157,7 @@ const AppProvider = ({ children }) => {
       // Error message already set by callApi
       return false;
     }
-  }, [callApi]);
+  }, [callApi, setCurrentPage]); // Added setCurrentPage to dependencies
 
   const signup = useCallback(async (newUser) => {
     try {
@@ -173,13 +173,13 @@ const AppProvider = ({ children }) => {
       // Error message already set by callApi
       return false;
     }
-  }, [callApi]);
+  }, [callApi, setCurrentPage]); // Added setCurrentPage to dependencies
 
   const logout = useCallback(() => {
     setCurrentUser(null);
     setCurrentPage('home');
     // In a real app, you might also call a logout API to invalidate sessions
-  }, []);
+  }, [setCurrentPage]); // Added setCurrentPage to dependencies
 
   // --- Data Management Functions (now interacting with API) ---
   const addProduct = useCallback(async (newProduct) => {
@@ -303,7 +303,7 @@ const AppProvider = ({ children }) => {
         setCurrentPage('home');
       }
     } catch (err) { /* handled by callApi */ }
-  }, [callApi, currentUser]);
+  }, [callApi, currentUser, setCurrentPage]); // Added setCurrentPage to dependencies
 
 
   const state = {
@@ -1972,9 +1972,7 @@ const AdminUserRoleManagement = () => {
     <div className="p-4 md:p-8">
       <h2 className="text-3xl font-bold mb-6 text-gray-900">User & Role Management</h2>
 
-      {message && <div className={`p-3 rounded-md mb-4 ${message.includes('failed') ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
-          {message}
-        </div>}
+      {message && <div className={`p-3 rounded-md mb-4 ${message.includes('failed') ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>{message}</div>}
 
       {editingUser && (
         <Card title={`Edit Role for ${editingUser.username}`} className="mb-8">
