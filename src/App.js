@@ -1,270 +1,315 @@
-import React, { useState, useEffect, createContext, useContext } from 'react';
+import React, { useState, useEffect, createContext, useContext, useCallback } from 'react';
 
-// Context for managing global state like user authentication, products, and orders
+// Context for managing global state and API interactions
 const AppContext = createContext();
 
+// Base URL for your Netlify Functions API
+// In production, this will be your site's URL (e.g., https://bestlinesuppliers.wuaze.com)
+// In development, it's usually localhost:8888 if you're running Netlify Dev
+const API_BASE_URL = window.location.hostname === 'localhost' ? 'http://localhost:8888/.netlify/functions' : window.location.origin + '/.netlify/functions';
+
 const AppProvider = ({ children }) => {
-  // --- Simulated Data Storage (In-memory for demonstration) ---
-  const [currentUser, setCurrentUser] = useState(null); // { id, username, role, name, farmType, location, contactInfo }
-  // Renamed the setter to setUsersState to avoid linting warnings when not directly used in AppProvider's render
-  const [users, setUsersState] = useState([
-    { id: 'admin-1', username: 'admin', password: 'password', role: 'admin', name: 'Admin User', farmType: '', location: '', contactInfo: '' },
-    { id: 'manager-1', username: 'manager', password: 'password', role: 'manager', name: 'Manager User', farmType: '', location: '', contactInfo: '' },
-    { id: 'cashier-1', username: 'cashier', password: 'password', role: 'cashier', name: 'Cashier User', farmType: '', location: '', contactInfo: '' },
-    { id: 'client-1', username: 'client', password: 'password', role: 'client', name: 'John Doe', farmType: 'Mixed Farming', location: 'Nakuru', contactInfo: 'john.doe@example.com' },
-  ]);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [users, setUsers] = useState([]); // Will be populated from DB
+  const [products, setProducts] = useState([]); // Will be populated from DB
+  const [orders, setOrders] = useState([]); // Will be populated from DB
+  const [sales, setSales] = useState([]); // Will be populated from DB
+  const [purchases, setPurchases] = useState([]); // Will be populated from DB
+  const [expenses, setExpenses] = useState([]); // Will be populated from DB
+  const [assets, setAssets] = useState([]); // Will be populated from DB
+  const [liabilities, setLiabilities] = useState([]); // Will be populated from DB
 
-  const [products, setProducts] = useState([
-    // NEW PRODUCTS
-    {
-      id: 'prod-1',
-      name: 'DengaGard001 - Organic Concentration',
-      description: '70% Formulated Garlic Consecration Organic. Mode of Action: DengaGard001 (DG) is a non-chemical insecticide resistance inoculant. DG is a natural fire prophylactic chemical release in your crop. DG offers a broad flexibility interval which is directly from sprouting to during harvest. It is a foliar fertilizer compatible with pyrethroids and conventional PPI herbicides. Application: 60ml/litre of water for foliar spray. 60ml/litre of water for foliar drenching. Storage: Keep in room temperature out of direct sunlight.',
-      category: 'Pesticide', // Categorized as Pesticide (Insecticide)
-      price: 2800, // Example price
-      stock: 120,
-      reorderLevel: 40,
-      batch: 'DG001',
-      expiryDate: '2027-01-31',
-      supplierInfo: 'BioAgro Solutions'
-    },
-    {
-      id: 'prod-2',
-      name: 'AGROCURE - Organic Solution',
-      description: 'Organic Booster: Beneficial antioxidant, plant extract, micro-organisms, organic acids and other useful bio-active substances. Mode of Action: AGROCURE is a organic plant polymer capable of de-ionizing hazardous substances (e.g., heavy metals and decomposing residues). AGROCURE is a plant extract which provides complete organisms promoter bio-de-grad. From macro molecules in the soil to macro molecules of soil organisms, AGROCURE increases disposal rates and livestock\'s wastes. Its therefore ideal for composting and leverage treatments to abiotic factors. Application (Pot Lixiviates): 100ml/50 litres of water in a pit hole every week until the plant solidifies. Then apply twice a week. Storage: Keep in room temperature out of direct sunlight.',
-      category: 'Foliar Feeds', // Categorized as Foliar Feeds (Booster)
-      price: 3500, // Example price
-      stock: 90,
-      reorderLevel: 30,
-      batch: 'AGR001',
-      expiryDate: '2026-11-20',
-      supplierInfo: 'EcoHarvest Ltd.'
-    },
-    {
-      id: 'prod-3',
-      name: 'PEACE GROW - Organic Solution',
-      description: 'Nitrogen (N): 0.00% Phosphorus (P): 90.00% Potassium (K): 90.00%. Mode of Action: PEACE GROW is a large chain plant polymer compatible with optimum ecologically safe. PEACE GROW is a plant extract that has rich organic nutrients that provide plants which provide complete organisms and bio-available. The plant is overcomes stress, by the deficiency in other biotic and abiotic factors. Application (Spraying): 1ml per litre of water. Drenching: 2ml per litre of water. Storage: Keep in room temperature out of direct sunlight. Precaution: Shake well before use.',
-      category: 'Foliar Feeds', // Categorized as Foliar Feeds (N-P-K)
-      price: 4200, // Example price
-      stock: 110,
-      reorderLevel: 35,
-      batch: 'PG001',
-      expiryDate: '2027-03-10',
-      supplierInfo: 'NutriPlant Kenya'
-    },
-  ]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  const [orders, setOrders] = useState([
-    { id: 'ord-1', clientId: 'client-1', items: [{ productId: 'prod-1', quantity: 2, unitPrice: 2800 }], totalAmount: 5600, orderDate: '2025-07-10', status: 'Delivered', invoiceDetails: 'INV-001' },
-    { id: 'ord-2', clientId: 'client-1', items: [{ productId: 'prod-2', quantity: 1, unitPrice: 3500 }], totalAmount: 3500, orderDate: '2025-07-12', status: 'Pending', invoiceDetails: 'INV-002' },
-  ]);
+  const [currentPage, setCurrentPage] = useState('home');
 
-  const [sales, setSales] = useState([
-    { id: 'sale-1', type: 'online', customerName: 'John Doe', clientId: 'client-1', productId: 'prod-1', quantity: 2, unitPrice: 2800, paymentMethod: 'M-Pesa', date: '2025-07-10', isCredit: false, orderId: 'ord-1' },
-    { id: 'sale-2', type: 'walk-in', customerName: 'Local Farmer Co-op', productId: 'prod-3', quantity: 5, unitPrice: 4200, paymentMethod: 'Cash', date: '2025-07-11', isCredit: false },
-    { id: 'sale-3', type: 'online', customerName: 'John Doe', clientId: 'client-1', productId: 'prod-2', quantity: 1, unitPrice: 3500, paymentMethod: 'Credit', date: '2025-07-12', isCredit: true, amountDue: 3500, dueDate: '2025-08-12', paid: false, orderId: 'ord-2' },
-  ]);
+  // --- API Helper Function ---
+  const callApi = useCallback(async (endpoint, method = 'GET', body = null) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const options = {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          // Add authorization headers if you implement token-based auth later
+        },
+      };
+      if (body) {
+        options.body = JSON.stringify(body);
+      }
 
-  const [purchases, setPurchases] = useState([
-    { id: 'pur-1', supplierName: 'BioAgro Solutions', productId: 'prod-1', quantity: 50, cost: 2200, date: '2025-06-01', isCredit: false },
-    { id: 'pur-2', supplierName: 'EcoHarvest Ltd.', productId: 'prod-2', quantity: 25, cost: 2800, date: '2025-06-15', isCredit: true, amountDue: 70000, dueDate: '2025-07-15', paid: false },
-  ]);
+      const response = await fetch(`${API_BASE_URL}${endpoint}`, options);
+      // Check if the response is JSON before parsing
+      const contentType = response.headers.get("content-type");
+      if (response.ok && contentType && contentType.includes("application/json")) {
+        const data = await response.json();
+        return data;
+      } else if (response.ok) {
+        // If not JSON but response is OK, it might be an empty response or unexpected format
+        console.warn(`Received non-JSON response from ${endpoint}, but status is OK. Content-Type: ${contentType}`);
+        return {}; // Return empty object or handle as appropriate
+      } else {
+        // Attempt to parse error message if available, otherwise use status text
+        const errorText = await response.text();
+        let errorMessage = `API Error: ${response.status} ${response.statusText}`;
+        try {
+          const errorJson = JSON.parse(errorText);
+          errorMessage = errorJson.message || errorMessage;
+        } catch (parseError) {
+          // If errorText is not JSON, use it directly or fall back
+          errorMessage = errorText || errorMessage;
+        }
+        throw new Error(errorMessage);
+      }
+    } catch (err) {
+      console.error("API Call Error:", err);
+      setError(err.message || "An unexpected error occurred.");
+      throw err; // Re-throw to allow specific error handling in components
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-  const [expenses, setExpenses] = useState([
-    { id: 'exp-1', description: 'Office Rent', category: 'Rent', amount: 50000, date: '2025-07-01' },
-    { id: 'exp-2', description: 'Fuel for Delivery Van', category: 'Transport', amount: 8000, date: '2025-07-05' },
-    { id: 'exp-3', description: 'Staff Wages', category: 'Salaries', amount: 120000, date: '2025-07-15' },
-  ]);
+  // --- Initial Data Fetching (on component mount) ---
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        // Fetch all initial data from your Netlify Functions
+        // IMPORTANT: For these API calls to work, you MUST have corresponding Netlify Functions
+        // (e.g., netlify/functions/users.js, netlify/functions/products.js, etc.)
+        // that return JSON data. If these functions are missing or return HTML (e.g., a 404 page),
+        // you will get "Unexpected token '<', "<!DOCTYPE "... is not valid JSON" errors.
+        const [fetchedUsers, fetchedProducts, fetchedOrders, fetchedSales, fetchedPurchases, fetchedExpenses, fetchedAssets, fetchedLiabilities] = await Promise.all([
+          callApi('/users'),
+          callApi('/products'),
+          callApi('/orders'),
+          callApi('/sales'),
+          callApi('/purchases'),
+          callApi('/expenses'),
+          callApi('/assets'),
+          callApi('/liabilities'),
+        ]);
 
-  const [assets, setAssets] = useState([
-    { id: 'asset-1', name: 'Delivery Van', purchaseValue: 1500000, purchaseDate: '2023-01-01', depreciationRate: 0.15 },
-    { id: 'asset-2', name: 'Warehouse Building', purchaseValue: 5000000, purchaseDate: '2020-05-10', depreciationRate: 0.05 },
-  ]);
+        setUsers(fetchedUsers);
+        setProducts(fetchedProducts);
+        setOrders(fetchedOrders);
+        setSales(fetchedSales);
+        setPurchases(fetchedPurchases);
+        setExpenses(fetchedExpenses);
+        setAssets(fetchedAssets);
+        setLiabilities(fetchedLiabilities);
 
-  const [liabilities, setLiabilities] = useState([
-    { id: 'lib-1', name: 'Bank Loan', type: 'Loan', amount: 1000000, interestRate: 0.12, repaymentDate: '2026-12-31' },
-    { id: 'lib-2', name: 'Pending Tax Payment', type: 'Taxes', amount: 50000, dueDate: '2025-07-31' },
-  ]);
+      } catch (err) {
+        console.error("Failed to fetch initial data:", err);
+        setError("Failed to load initial data. Please ensure all Netlify Functions are deployed and correctly configured. Error: " + err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  const [currentPage, setCurrentPage] = useState('home'); // 'home', 'about', 'products', 'contact', 'login', 'signup', 'client-dashboard', 'admin-dashboard', 'admin-inventory', etc.
+    fetchData();
+  }, [callApi]); // Dependency on callApi to ensure it's stable
 
-  // --- Utility Functions ---
-  const getProductById = (id) => products.find(p => p.id === id);
-  // Corrected typo in getUserById: ensure it compares u.id with the passed 'id'
-  const getUserById = (id) => users.find(u => u.id === id);
+  // --- Utility Functions (now interacting with API) ---
+  const getProductById = useCallback((id) => products.find(p => p.id === id), [products]);
+  const getUserById = useCallback((id) => users.find(u => u.id === id), [users]);
 
-  const generateUniqueId = (prefix) => `${prefix}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-
-  const calculateCurrentValue = (asset) => {
+  const calculateCurrentValue = useCallback((asset) => {
     const purchaseYear = new Date(asset.purchaseDate).getFullYear();
     const currentYear = new Date().getFullYear();
     const yearsDepreciated = currentYear - purchaseYear;
     return asset.purchaseValue * Math.pow((1 - asset.depreciationRate), yearsDepreciated);
-  };
+  }, []);
 
-  const getCustomerDebts = () => {
+  const getCustomerDebts = useCallback(() => {
     return sales.filter(sale => sale.isCredit && !sale.paid).map(sale => ({
       ...sale,
       productName: getProductById(sale.productId)?.name || 'Unknown Product',
       isOverdue: sale.dueDate && new Date(sale.dueDate) < new Date()
     }));
-  };
+  }, [sales, getProductById]);
 
-  const getSupplierDebts = () => {
+  const getSupplierDebts = useCallback(() => {
     return purchases.filter(purchase => purchase.isCredit && !purchase.paid).map(purchase => ({
       ...purchase,
       productName: getProductById(purchase.productId)?.name || 'Unknown Product',
       isOverdue: purchase.dueDate && new Date(purchase.dueDate) < new Date()
     }));
-  };
+  }, [purchases, getProductById]);
 
-  // --- Authentication Functions ---
-  const login = (username, password) => {
-    const user = users.find(u => u.username === username && u.password === password);
-    if (user) {
-      setCurrentUser(user);
-      if (user.role === 'client') {
-        setCurrentPage('client-dashboard');
-      } else {
-        setCurrentPage('admin-dashboard');
+  // --- Authentication Functions (now interacting with API) ---
+  const login = useCallback(async (username, password) => {
+    try {
+      const data = await callApi('/login', 'POST', { username, password });
+      if (data.user) {
+        setCurrentUser(data.user);
+        if (data.user.role === 'client') {
+          setCurrentPage('client-dashboard');
+        } else {
+          setCurrentPage('admin-dashboard');
+        }
+        return true;
       }
-      return true;
+      return false;
+    } catch (err) {
+      // Error message already set by callApi
+      return false;
     }
-    return false;
-  };
+  }, [callApi]);
 
-  const signup = (newUser) => {
-    if (users.some(u => u.username === newUser.username)) {
-      return false; // Username already exists
+  const signup = useCallback(async (newUser) => {
+    try {
+      const data = await callApi('/signup', 'POST', newUser);
+      if (data.user) {
+        setUsers(prev => [...prev, data.user]); // Update local state
+        setCurrentUser(data.user);
+        setCurrentPage('client-dashboard');
+        return true;
+      }
+      return false;
+    } catch (err) {
+      // Error message already set by callApi
+      return false;
     }
-    const userWithId = { ...newUser, id: generateUniqueId('user'), role: 'client' };
-    setUsersState(prev => [...prev, userWithId]); // Use setUsersState here
-    setCurrentUser(userWithId);
-    setCurrentPage('client-dashboard');
-    return true;
-  };
+  }, [callApi]);
 
-  const logout = () => {
+  const logout = useCallback(() => {
     setCurrentUser(null);
     setCurrentPage('home');
-  };
+    // In a real app, you might also call a logout API to invalidate sessions
+  }, []);
 
-  // --- Data Management Functions ---
-  const addProduct = (newProduct) => {
-    setProducts(prev => [...prev, { ...newProduct, id: generateUniqueId('prod') }]);
-  };
+  // --- Data Management Functions (now interacting with API) ---
+  const addProduct = useCallback(async (newProduct) => {
+    try {
+      const data = await callApi('/products', 'POST', newProduct);
+      setProducts(prev => [...prev, data.product]);
+    } catch (err) { /* handled by callApi */ }
+  }, [callApi]);
 
-  const updateProduct = (updatedProduct) => {
-    setProducts(prev => prev.map(p => p.id === updatedProduct.id ? updatedProduct : p));
-  };
+  const updateProduct = useCallback(async (updatedProduct) => {
+    try {
+      const data = await callApi(`/products/${updatedProduct.id}`, 'PUT', updatedProduct);
+      setProducts(prev => prev.map(p => p.id === updatedProduct.id ? data.product : p));
+    } catch (err) { /* handled by callApi */ }
+  }, [callApi]);
 
-  const deleteProduct = (id) => {
-    setProducts(prev => prev.filter(p => p.id !== id));
-  };
+  const deleteProduct = useCallback(async (id) => {
+    try {
+      await callApi(`/products/${id}`, 'DELETE');
+      setProducts(prev => prev.filter(p => p.id !== id));
+    } catch (err) { /* handled by callApi */ }
+  }, [callApi]);
 
-  const placeOrder = (clientId, items) => {
-    const newOrderId = generateUniqueId('ord');
-    const totalAmount = items.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
-    const newOrder = {
-      id: newOrderId,
-      clientId,
-      items,
-      totalAmount,
-      orderDate: new Date().toISOString().split('T')[0],
-      status: 'Pending',
-      invoiceDetails: `INV-${Date.now()}`
-    };
-    setOrders(prev => [...prev, newOrder]);
+  const placeOrder = useCallback(async (clientId, items) => {
+    try {
+      const data = await callApi('/orders', 'POST', { clientId, items });
+      setOrders(prev => [...prev, data.order]);
 
-    // Simulate recording sale for online order
-    items.forEach(item => {
-      const product = getProductById(item.productId);
-      if (product) {
-        setSales(prev => [...prev, {
-          id: generateUniqueId('sale'),
-          type: 'online',
-          customerName: getUserById(clientId)?.name || 'Online Client',
-          clientId,
-          productId: item.productId,
-          quantity: item.quantity,
-          unitPrice: item.unitPrice,
-          paymentMethod: 'Online Payment (Simulated)',
-          date: new Date().toISOString().split('T')[0],
-          isCredit: false, // Assume online orders are paid
-          orderId: newOrderId,
-        }]);
-        // Update stock
+      // Update local stock for products involved in the order
+      items.forEach(item => {
         setProducts(prev => prev.map(p =>
           p.id === item.productId ? { ...p, stock: p.stock - item.quantity } : p
         ));
+      });
+      return data.order;
+    } catch (err) { /* handled by callApi */ }
+  }, [callApi]);
+
+  const updateOrderStatus = useCallback(async (orderId, newStatus) => {
+    try {
+      const data = await callApi(`/orders/${orderId}`, 'PUT', { status: newStatus });
+      setOrders(prev => prev.map(order => order.id === orderId ? data.order : order));
+    } catch (err) { /* handled by callApi */ }
+  }, [callApi]);
+
+  const recordSale = useCallback(async (newSale) => {
+    try {
+      const data = await callApi('/sales', 'POST', newSale);
+      setSales(prev => [...prev, data.sale]);
+      // Update local stock for walk-in sales
+      if (newSale.type === 'walk-in') {
+        setProducts(prev => prev.map(p =>
+          p.id === newSale.productId ? { ...p, stock: p.stock - newSale.quantity } : p
+        ));
       }
-    });
-    return newOrder;
-  };
+    } catch (err) { /* handled by callApi */ }
+  }, [callApi]);
 
-  const updateOrderStatus = (orderId, newStatus) => {
-    setOrders(prev => prev.map(order => order.id === orderId ? { ...order, status: newStatus } : order));
-  };
-
-  const recordSale = (newSale) => {
-    setSales(prev => [...prev, { ...newSale, id: generateUniqueId('sale') }]);
-    // Update stock for walk-in sales
-    if (newSale.type === 'walk-in') {
+  const recordPurchase = useCallback(async (newPurchase) => {
+    try {
+      const data = await callApi('/purchases', 'POST', newPurchase);
+      setPurchases(prev => [...prev, data.purchase]);
+      // Update local stock
       setProducts(prev => prev.map(p =>
-        p.id === newSale.productId ? { ...p, stock: p.stock - newSale.quantity } : p
+        p.id === newPurchase.productId ? { ...p, stock: p.stock + newPurchase.quantity } : p
       ));
-    }
-  };
+    } catch (err) { /* handled by callApi */ }
+  }, [callApi]);
 
-  const recordPurchase = (newPurchase) => {
-    setPurchases(prev => [...prev, { ...newPurchase, id: generateUniqueId('pur') }]);
-    // Update stock
-    setProducts(prev => prev.map(p =>
-      p.id === newPurchase.productId ? { ...p, stock: p.stock + newPurchase.quantity } : p
-    ));
-  };
+  const addExpense = useCallback(async (newExpense) => {
+    try {
+      const data = await callApi('/expenses', 'POST', newExpense);
+      setExpenses(prev => [...prev, data.expense]);
+    } catch (err) /* handled by callApi */ { }
+  }, [callApi]);
 
-  const addExpense = (newExpense) => {
-    setExpenses(prev => [...prev, { ...newExpense, id: generateUniqueId('exp') }]);
-  };
+  const addAsset = useCallback(async (newAsset) => {
+    try {
+      const data = await callApi('/assets', 'POST', newAsset);
+      setAssets(prev => [...prev, data.asset]);
+    } catch (err) { /* handled by callApi */ }
+  }, [callApi]);
 
-  const addAsset = (newAsset) => {
-    setAssets(prev => [...prev, { ...newAsset, id: generateUniqueId('asset') }]);
-  };
+  const addLiability = useCallback(async (newLiability) => {
+    try {
+      const data = await callApi('/liabilities', 'POST', newLiability);
+      setLiabilities(prev => [...prev, data.liability]);
+    } catch (err) { /* handled by callApi */ }
+  }, [callApi]);
 
-  const addLiability = (newLiability) => {
-    setLiabilities(prev => [...prev, { ...newLiability, id: generateUniqueId('lib') }]);
-  };
+  const markCustomerDebtPaid = useCallback(async (saleId) => {
+    try {
+      const data = await callApi(`/sales/${saleId}/markPaid`, 'PUT');
+      setSales(prev => prev.map(sale => sale.id === saleId ? data.sale : sale));
+    } catch (err) { /* handled by callApi */ }
+  }, [callApi]);
 
-  const markCustomerDebtPaid = (saleId) => {
-    setSales(prev => prev.map(sale => sale.id === saleId ? { ...sale, paid: true, amountDue: 0 } : sale));
-  };
+  const markSupplierDebtPaid = useCallback(async (purchaseId) => {
+    try {
+      const data = await callApi(`/purchases/${purchaseId}/markPaid`, 'PUT');
+      setPurchases(prev => prev.map(purchase => purchase.id === purchaseId ? data.purchase : purchase));
+    } catch (err) { /* handled by callApi */ }
+  }, [callApi]);
 
-  const markSupplierDebtPaid = (purchaseId) => {
-    setPurchases(prev => prev.map(purchase => purchase.id === purchaseId ? { ...purchase, paid: true, amountDue: 0 } : purchase));
-  };
+  const updateUserProfile = useCallback(async (userId, updatedInfo) => {
+    try {
+      const data = await callApi(`/users/${userId}`, 'PUT', updatedInfo);
+      setUsers(prev => prev.map(u => u.id === userId ? data.user : u));
+      if (currentUser && currentUser.id === userId) {
+        setCurrentUser(data.user);
+      }
+    } catch (err) { /* handled by callApi */ }
+  }, [callApi, currentUser]);
 
-  const updateUserProfile = (userId, updatedInfo) => {
-    setUsersState(prev => prev.map(u => u.id === userId ? { ...u, ...updatedInfo } : u)); // Use setUsersState here
-    if (currentUser && currentUser.id === userId) {
-      setCurrentUser(prev => ({ ...prev, ...updatedInfo }));
-    }
-  };
+  const deleteUser = useCallback(async (userIdToDelete) => {
+    try {
+      await callApi(`/users/${userIdToDelete}`, 'DELETE');
+      setUsers(prev => prev.filter(u => u.id !== userIdToDelete));
+      if (currentUser && currentUser.id === userIdToDelete) {
+        setCurrentUser(null);
+        setCurrentPage('home');
+      }
+    } catch (err) { /* handled by callApi */ }
+  }, [callApi, currentUser]);
 
-  // NEW: Function to delete a user
-  const deleteUser = (userIdToDelete) => {
-    setUsersState(prev => prev.filter(u => u.id !== userIdToDelete));
-    // If the deleted user was the current user, log them out
-    if (currentUser && currentUser.id === userIdToDelete) {
-      setCurrentUser(null);
-      setCurrentPage('home');
-    }
-  };
 
   const state = {
     currentUser, setCurrentUser, login, signup, logout,
     products, setProducts, addProduct, updateProduct, deleteProduct, getProductById,
-    users, getUserById, updateUserProfile, deleteUser, // Added deleteUser to context
+    users, getUserById, updateUserProfile, deleteUser,
     orders, setOrders, placeOrder, updateOrderStatus,
     sales, setSales, recordSale,
     purchases, setPurchases, recordPurchase,
@@ -274,6 +319,7 @@ const AppProvider = ({ children }) => {
     getCustomerDebts, markCustomerDebtPaid,
     getSupplierDebts, markSupplierDebtPaid,
     currentPage, setCurrentPage,
+    loading, error // Expose loading and error states
   };
 
   return (
@@ -367,8 +413,11 @@ const Table = ({ headers, data, renderRow }) => (
 // --- Public Website Components ---
 
 const Homepage = () => {
-  const { setCurrentPage, products } = useContext(AppContext);
+  const { setCurrentPage, products, loading, error } = useContext(AppContext);
   const featuredProducts = products.slice(0, 3); // Show first 3 as featured
+
+  if (loading) return <p className="text-center p-8">Loading products...</p>;
+  if (error) return <p className="text-center p-8 text-red-500">Error: {error}</p>;
 
   return (
     <div className="text-center py-12 md:py-20 bg-gradient-to-b from-green-50 to-white">
@@ -461,13 +510,17 @@ const AboutUsPage = () => (
 );
 
 const ProductsPage = () => {
-  const { products, setCurrentPage, currentUser } = useContext(AppContext);
+  const { products, setCurrentPage, currentUser, loading, error } = useContext(AppContext);
   const [filterCategory, setFilterCategory] = useState('All');
   const productCategories = ['All', ...new Set(products.map(p => p.category))];
 
   const filteredProducts = filterCategory === 'All'
     ? products
     : products.filter(p => p.category === filterCategory);
+
+  if (loading) return <p className="text-center p-8">Loading products...</p>;
+  if (error) return <p className="text-center p-8 text-red-500">Error: {error}</p>;
+
 
   return (
     <div className="p-4 md:p-8">
@@ -598,28 +651,27 @@ const ContactUsPage = () => {
 };
 
 const AuthForm = ({ type }) => {
-  const { login, signup, setCurrentPage } = useContext(AppContext);
+  const { login, signup, setCurrentPage, loading, error } = useContext(AppContext);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [farmType, setFarmType] = useState('');
   const [location, setLocation] = useState('');
   const [contactInfo, setContactInfo] = useState('');
-  const [error, setError] = useState('');
+  const [authError, setAuthError] = useState(''); // Specific error for auth form
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
+    setAuthError('');
     if (type === 'login') {
-      if (login(username, password)) {
-        // Success handled by context, page changed
-      } else {
-        setError('Invalid username or password.');
+      const success = await login(username, password);
+      if (!success) {
+        setAuthError(error || 'Invalid username or password.'); // Use global error if available, else generic
       }
     } else { // signup
-      const success = signup({ username, password, name, farmType, location, contactInfo });
+      const success = await signup({ username, password, name, farmType, location, contactInfo });
       if (!success) {
-        setError('Username already exists. Please choose a different one.');
+        setAuthError(error || 'Username already exists or signup failed.');
       }
     }
   };
@@ -640,9 +692,10 @@ const AuthForm = ({ type }) => {
           </>
         )}
 
-        {error && <p className="text-red-500 text-sm mb-4">{error}</p>}
+        {(authError || error) && <p className="text-red-500 text-sm mb-4">{authError || error}</p>}
+        {loading && <p className="text-blue-500 text-sm mb-4">Processing...</p>}
 
-        <Button type="submit" className="w-full mb-4">
+        <Button type="submit" className="w-full mb-4" disabled={loading}>
           {type === 'login' ? 'Login' : 'Sign Up'}
         </Button>
 
@@ -663,7 +716,7 @@ const AuthForm = ({ type }) => {
 // --- Client Profile Dashboard Components ---
 
 const ClientDashboard = () => {
-  const { currentUser, setCurrentPage } = useContext(AppContext);
+  const { currentUser } = useContext(AppContext);
 
   if (!currentUser || currentUser.role !== 'client') {
     return <p className="text-center text-red-500 p-8">Access Denied. Please login as a client.</p>;
@@ -694,7 +747,7 @@ const ClientDashboard = () => {
 };
 
 const ClientOrderHistory = () => {
-  const { currentUser, orders, getProductById } = useContext(AppContext);
+  const { currentUser, orders, getProductById, loading, error } = useContext(AppContext);
   const [message, setMessage] = useState('');
 
   if (!currentUser || currentUser.role !== 'client') return null;
@@ -705,6 +758,9 @@ const ClientOrderHistory = () => {
     setMessage(`Invoice for Order ID: ${order.id}\nStatus: ${order.status}\nTotal: Ksh ${order.totalAmount.toLocaleString()}\n\nItems:\n${order.items.map(item => `${getProductById(item.productId)?.name || 'N/A'} x ${item.quantity} @ Ksh ${item.unitPrice}`).join('\n')}`);
     setTimeout(() => setMessage(''), 5000); // Clear message after 5 seconds
   };
+
+  if (loading) return <p className="text-center p-8">Loading order history...</p>;
+  if (error) return <p className="text-center p-8 text-red-500">Error loading orders: {error}</p>;
 
   return (
     <div className="p-4 md:p-8">
@@ -752,7 +808,7 @@ const ClientOrderHistory = () => {
 };
 
 const PlaceNewOrder = () => {
-  const { currentUser, products, placeOrder } = useContext(AppContext);
+  const { currentUser, products, placeOrder, loading, error } = useContext(AppContext);
   const [selectedProducts, setSelectedProducts] = useState({}); // { productId: quantity }
   const [message, setMessage] = useState('');
 
@@ -770,7 +826,7 @@ const PlaceNewOrder = () => {
     });
   };
 
-  const handleSubmitOrder = (e) => {
+  const handleSubmitOrder = async (e) => {
     e.preventDefault();
     setMessage('');
     const itemsToOrder = Object.entries(selectedProducts)
@@ -794,11 +850,18 @@ const PlaceNewOrder = () => {
       return;
     }
 
-    const newOrder = placeOrder(currentUser.id, itemsToOrder);
-    setMessage(`Order ${newOrder.id} placed successfully! Total: Ksh ${newOrder.totalAmount.toLocaleString()}. Status: ${newOrder.status}`);
-    setSelectedProducts({}); // Clear cart
+    try {
+      const newOrder = await placeOrder(currentUser.id, itemsToOrder);
+      setMessage(`Order ${newOrder.id} placed successfully! Total: Ksh ${newOrder.totalAmount.toLocaleString()}. Status: ${newOrder.status}`);
+      setSelectedProducts({}); // Clear cart
+    } catch (err) {
+      setMessage(`Failed to place order: ${err.message}`);
+    }
     setTimeout(() => setMessage(''), 5000); // Clear message after 5 seconds
   };
+
+  if (loading) return <p className="text-center p-8">Loading products for order...</p>;
+  if (error) return <p className="text-center p-8 text-red-500">Error loading products: {error}</p>;
 
   return (
     <div className="p-4 md:p-8">
@@ -834,7 +897,7 @@ const PlaceNewOrder = () => {
             )}
           />
           <div className="mt-6 text-right">
-            <Button type="submit" disabled={Object.keys(selectedProducts).length === 0}>
+            <Button type="submit" disabled={Object.keys(selectedProducts).length === 0 || loading}>
               Submit Order
             </Button>
           </div>
@@ -845,7 +908,7 @@ const PlaceNewOrder = () => {
 };
 
 const ClientProfileManagement = () => {
-  const { currentUser, updateUserProfile } = useContext(AppContext);
+  const { currentUser, updateUserProfile, loading, error } = useContext(AppContext);
   const [profileData, setProfileData] = useState({
     name: '', farmType: '', location: '', contactInfo: ''
   });
@@ -869,10 +932,14 @@ const ClientProfileManagement = () => {
     setProfileData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    updateUserProfile(currentUser.id, profileData);
-    setMessage('Profile updated successfully!');
+    try {
+      await updateUserProfile(currentUser.id, profileData);
+      setMessage('Profile updated successfully!');
+    } catch (err) {
+      setMessage(`Failed to update profile: ${err.message}`);
+    }
     setTimeout(() => setMessage(''), 3000);
   };
 
@@ -880,13 +947,14 @@ const ClientProfileManagement = () => {
     <div className="p-4 md:p-8">
       <h2 className="text-3xl font-bold text-green-800 mb-6">Manage Your Profile</h2>
       <Card>
-        {message && <div className="p-3 bg-green-100 text-green-700 rounded-md mb-4">{message}</div>}
+        {message && <div className={`p-3 rounded-md mb-4 ${message.includes('Failed') ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>{message}</div>}
+        {loading && <p className="text-blue-500 text-sm mb-4">Updating profile...</p>}
         <form onSubmit={handleSubmit}>
           <Input label="Full Name" name="name" value={profileData.name} onChange={handleChange} required />
           <Input label="Farm Type (e.g., Mixed, Crop, Livestock)" name="farmType" value={profileData.farmType} onChange={handleChange} />
           <Input label="Location (Town/District)" name="location" value={profileData.location} onChange={handleChange} required />
           <Input label="Contact Info (Email/Phone)" name="contactInfo" value={profileData.contactInfo} onChange={handleChange} required />
-          <Button type="submit">Update Profile</Button>
+          <Button type="submit" disabled={loading}>Update Profile</Button>
         </form>
       </Card>
     </div>
@@ -897,11 +965,14 @@ const ClientProfileManagement = () => {
 // --- Admin Panel Components ---
 
 const AdminDashboard = () => {
-  const { products, sales, expenses, orders, getCustomerDebts, getSupplierDebts, currentUser } = useContext(AppContext);
+  const { products, sales, expenses, orders, getCustomerDebts, getSupplierDebts, currentUser, loading, error } = useContext(AppContext);
 
   if (!currentUser || !['admin', 'manager'].includes(currentUser.role)) {
     return <p className="text-center text-red-500 p-8">Access Denied. Please login as Admin or Manager.</p>;
   }
+
+  if (loading) return <p className="text-center p-8">Loading dashboard data...</p>;
+  if (error) return <p className="text-center p-8 text-red-500">Error loading dashboard: {error}</p>;
 
   // KPIs
   const totalSalesValue = sales.reduce((sum, s) => sum + (s.quantity * s.unitPrice), 0);
@@ -990,12 +1061,13 @@ const AdminDashboard = () => {
 };
 
 const AdminInventoryManagement = () => {
-  const { products, addProduct, updateProduct, deleteProduct, currentUser } = useContext(AppContext);
+  const { products, addProduct, updateProduct, deleteProduct, currentUser, loading, error } = useContext(AppContext);
   const [showAddEditForm, setShowAddEditForm] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
   const [newProduct, setNewProduct] = useState({
     name: '', description: '', category: 'Foliar Feeds', price: '', stock: '', reorderLevel: '', batch: '', expiryDate: '', supplierInfo: ''
   });
+  const [formMessage, setFormMessage] = useState('');
 
   const productCategories = [
     { value: 'Foliar Feeds', label: 'Foliar Feeds' },
@@ -1009,16 +1081,24 @@ const AdminInventoryManagement = () => {
     setNewProduct(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (editingProduct) {
-      updateProduct({ ...editingProduct, ...newProduct, price: parseFloat(newProduct.price), stock: parseInt(newProduct.stock), reorderLevel: parseInt(newProduct.reorderLevel) });
-      setEditingProduct(null);
-    } else {
-      addProduct({ ...newProduct, price: parseFloat(newProduct.price), stock: parseInt(newProduct.stock), reorderLevel: parseInt(newProduct.reorderLevel) });
+    setFormMessage('');
+    try {
+      if (editingProduct) {
+        await updateProduct({ ...editingProduct, ...newProduct, price: parseFloat(newProduct.price), stock: parseInt(newProduct.stock), reorderLevel: parseInt(newProduct.reorderLevel) });
+        setFormMessage('Product updated successfully!');
+        setEditingProduct(null);
+      } else {
+        await addProduct({ ...newProduct, price: parseFloat(newProduct.price), stock: parseInt(newProduct.stock), reorderLevel: parseInt(newProduct.reorderLevel) });
+        setFormMessage('Product added successfully!');
+      }
+      setNewProduct({ name: '', description: '', category: 'Foliar Feeds', price: '', stock: '', reorderLevel: '', batch: '', expiryDate: '', supplierInfo: '' });
+      setShowAddEditForm(false);
+    } catch (err) {
+      setFormMessage(`Operation failed: ${err.message}`);
     }
-    setNewProduct({ name: '', description: '', category: 'Foliar Feeds', price: '', stock: '', reorderLevel: '', batch: '', expiryDate: '', supplierInfo: '' });
-    setShowAddEditForm(false);
+    setTimeout(() => setFormMessage(''), 5000);
   };
 
   const handleEditClick = (product) => {
@@ -1029,11 +1109,18 @@ const AdminInventoryManagement = () => {
       batch: product.batch, expiryDate: product.expiryDate, supplierInfo: product.supplierInfo
     });
     setShowAddEditForm(true);
+    setFormMessage('');
   };
 
-  const handleDeleteClick = (id) => {
+  const handleDeleteClick = async (id) => {
     if (window.confirm('Are you sure you want to delete this product?')) {
-      deleteProduct(id);
+      try {
+        await deleteProduct(id);
+        setFormMessage('Product deleted successfully!');
+      } catch (err) {
+        setFormMessage(`Failed to delete product: ${err.message}`);
+      }
+      setTimeout(() => setFormMessage(''), 5000);
     }
   };
 
@@ -1043,15 +1130,24 @@ const AdminInventoryManagement = () => {
     return <p className="text-center text-red-500 p-8">Access Denied. Only Admin or Manager can access Inventory.</p>;
   }
 
+  if (loading) return <p className="text-center p-8">Loading inventory...</p>;
+  if (error) return <p className="text-center p-8 text-red-500">Error loading inventory: {error}</p>;
+
   return (
     <div className="p-4 md:p-8">
       <h2 className="text-3xl font-bold mb-6 text-gray-900">Inventory Management</h2>
 
       <div className="mb-6">
-        <Button onClick={() => { setShowAddEditForm(true); setEditingProduct(null); setNewProduct({ name: '', description: '', category: 'Foliar Feeds', price: '', stock: '', reorderLevel: '', batch: '', expiryDate: '', supplierInfo: '' }); }}>
+        <Button onClick={() => { setShowAddEditForm(true); setEditingProduct(null); setNewProduct({ name: '', description: '', category: 'Foliar Feeds', price: '', stock: '', reorderLevel: '', batch: '', expiryDate: '', supplierInfo: '' }); setFormMessage(''); }}>
           {editingProduct ? 'Edit Product' : 'Add New Product'}
         </Button>
       </div>
+
+      {formMessage && (
+        <div className={`p-3 rounded-md mb-4 ${formMessage.includes('failed') ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+          {formMessage}
+        </div>
+      )}
 
       {showAddEditForm && (
         <Card title={editingProduct ? 'Edit Product' : 'Add New Product'} className="mb-8">
@@ -1069,7 +1165,7 @@ const AdminInventoryManagement = () => {
             <Input label="Expiry Date" name="expiryDate" type="date" value={newProduct.expiryDate} onChange={handleInputChange} required />
             <Input label="Supplier Info" name="supplierInfo" value={newProduct.supplierInfo} onChange={handleInputChange} />
             <div className="flex space-x-4">
-              <Button type="submit">{editingProduct ? 'Update Product' : 'Add Product'}</Button>
+              <Button type="submit" disabled={loading}>{editingProduct ? 'Update Product' : 'Add Product'}</Button>
               <Button type="button" onClick={() => setShowAddEditForm(false)} className="bg-gray-500 hover:bg-gray-600">Cancel</Button>
             </div>
           </form>
@@ -1085,6 +1181,7 @@ const AdminInventoryManagement = () => {
               <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{product.name}</td>
               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{product.category}</td>
               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">Ksh {product.price.toLocaleString()}</td>
+              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{product.stock}</td>
               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{product.reorderLevel}</td>
               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{product.batch}</td>
               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{product.expiryDate}</td>
@@ -1094,8 +1191,8 @@ const AdminInventoryManagement = () => {
                 {product.stock > product.reorderLevel && new Date(product.expiryDate) >= new Date(new Date().setMonth(new Date().getMonth() + 3)) && <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Good</span>}
               </td>
               <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                <Button onClick={() => handleEditClick(product)} className="bg-indigo-600 hover:bg-indigo-700 mr-2">Edit</Button>
-                <Button onClick={() => handleDeleteClick(product.id)} className="bg-red-600 hover:bg-red-700">Delete</Button>
+                <Button onClick={() => handleEditClick(product)} className="bg-indigo-600 hover:bg-indigo-700 mr-2" disabled={loading}>Edit</Button>
+                <Button onClick={() => handleDeleteClick(product.id)} className="bg-red-600 hover:bg-red-700" disabled={loading}>Delete</Button>
               </td>
             </tr>
           )}
@@ -1106,11 +1203,10 @@ const AdminInventoryManagement = () => {
 };
 
 const AdminSalesPurchases = () => {
-  const { products, sales, purchases, recordSale, recordPurchase, getProductById, currentUser } = useContext(AppContext);
+  const { products, sales, purchases, recordSale, recordPurchase, getProductById, currentUser, loading, error } = useContext(AppContext);
   const [showAddSaleForm, setShowAddSaleForm] = useState(false);
   const [showAddPurchaseForm, setShowAddPurchaseForm] = useState(false);
-  const [saleMessage, setSaleMessage] = useState('');
-  const [purchaseMessage, setPurchaseMessage] = useState('');
+  const [formMessage, setFormMessage] = useState('');
 
   const [newSale, setNewSale] = useState({
     type: 'walk-in', customerName: '', productId: '', quantity: '', paymentMethod: 'Cash', date: new Date().toISOString().split('T')[0], isCredit: false, amountDue: '', dueDate: ''
@@ -1129,12 +1225,12 @@ const AdminSalesPurchases = () => {
     setNewPurchase(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
   };
 
-  const handleSaleSubmit = (e) => {
+  const handleSaleSubmit = async (e) => {
     e.preventDefault();
-    setSaleMessage(''); // Clear previous messages
+    setFormMessage('');
     const product = getProductById(newSale.productId);
-    if (!product) { setSaleMessage('Error: Product not found.'); return; }
-    if (parseInt(newSale.quantity) > product.stock) { setSaleMessage('Error: Quantity exceeds stock!'); return; }
+    if (!product) { setFormMessage('Error: Product not found.'); return; }
+    if (parseInt(newSale.quantity) > product.stock) { setFormMessage('Error: Quantity exceeds stock!'); return; }
 
     const saleData = {
       ...newSale,
@@ -1143,16 +1239,20 @@ const AdminSalesPurchases = () => {
       amountDue: newSale.isCredit ? (parseInt(newSale.quantity) * product.price) : 0,
       paid: !newSale.isCredit,
     };
-    recordSale(saleData);
-    setSaleMessage('Sale recorded successfully!');
-    setNewSale({ type: 'walk-in', customerName: '', productId: '', quantity: '', paymentMethod: 'Cash', date: new Date().toISOString().split('T')[0], isCredit: false, amountDue: '', dueDate: '' });
-    setShowAddSaleForm(false);
-    setTimeout(() => setSaleMessage(''), 5000); // Clear message after 5 seconds
+    try {
+      await recordSale(saleData);
+      setFormMessage('Sale recorded successfully!');
+      setNewSale({ type: 'walk-in', customerName: '', productId: '', quantity: '', paymentMethod: 'Cash', date: new Date().toISOString().split('T')[0], isCredit: false, amountDue: '', dueDate: '' });
+      setShowAddSaleForm(false);
+    } catch (err) {
+      setFormMessage(`Failed to record sale: ${err.message}`);
+    }
+    setTimeout(() => setFormMessage(''), 5000);
   };
 
-  const handlePurchaseSubmit = (e) => {
+  const handlePurchaseSubmit = async (e) => {
     e.preventDefault();
-    setPurchaseMessage(''); // Clear previous messages
+    setFormMessage('');
     const purchaseData = {
       ...newPurchase,
       quantity: parseInt(newPurchase.quantity),
@@ -1160,11 +1260,15 @@ const AdminSalesPurchases = () => {
       amountDue: newPurchase.isCredit ? (parseInt(newPurchase.quantity) * parseFloat(newPurchase.cost)) : 0,
       paid: !newPurchase.isCredit,
     };
-    recordPurchase(purchaseData);
-    setPurchaseMessage('Purchase recorded successfully!');
-    setNewPurchase({ supplierName: '', productId: '', quantity: '', cost: '', date: new Date().toISOString().split('T')[0], isCredit: false, amountDue: '', dueDate: '' });
-    setShowAddPurchaseForm(false);
-    setTimeout(() => setPurchaseMessage(''), 5000); // Clear message after 5 seconds
+    try {
+      await recordPurchase(purchaseData);
+      setFormMessage('Purchase recorded successfully!');
+      setNewPurchase({ supplierName: '', productId: '', quantity: '', cost: '', date: new Date().toISOString().split('T')[0], isCredit: false, amountDue: '', dueDate: '' });
+      setShowAddPurchaseForm(false);
+    } catch (err) {
+      setFormMessage(`Failed to record purchase: ${err.message}`);
+    }
+    setTimeout(() => setFormMessage(''), 5000);
   };
 
   const canRecord = currentUser && ['admin', 'manager', 'cashier'].includes(currentUser.role);
@@ -1174,23 +1278,21 @@ const AdminSalesPurchases = () => {
     return <p className="text-center text-red-500 p-8">Access Denied. Only Admin, Manager or Cashier can access Sales/Purchases.</p>;
   }
 
+  if (loading) return <p className="text-center p-8">Loading sales and purchases...</p>;
+  if (error) return <p className="text-center p-8 text-red-500">Error loading data: {error}</p>;
+
   return (
     <div className="p-4 md:p-8">
       <h2 className="text-3xl font-bold mb-6 text-gray-900">Sales & Purchase Transactions</h2>
 
       <div className="mb-6 flex space-x-4">
-        <Button onClick={() => setShowAddSaleForm(true)}>Record New Sale</Button>
-        {canManagePurchases && <Button onClick={() => setShowAddPurchaseForm(true)} className="bg-blue-600 hover:bg-blue-700">Record New Purchase</Button>}
+        <Button onClick={() => { setShowAddSaleForm(true); setFormMessage(''); }}>Record New Sale</Button>
+        {canManagePurchases && <Button onClick={() => { setShowAddPurchaseForm(true); setFormMessage(''); }} className="bg-blue-600 hover:bg-blue-700">Record New Purchase</Button>}
       </div>
 
-      {saleMessage && (
-        <div className={`p-3 rounded-md mb-4 ${saleMessage.includes('Error') ? 'bg-red-100 text-red-700 border border-red-400' : 'bg-green-100 text-green-700 border border-green-400'}`}>
-          {saleMessage}
-        </div>
-      )}
-      {purchaseMessage && (
-        <div className={`p-3 rounded-md mb-4 ${purchaseMessage.includes('Error') ? 'bg-red-100 text-red-700 border border-red-400' : 'bg-green-100 text-green-700 border border-green-400'}`}>
-          {purchaseMessage}
+      {formMessage && (
+        <div className={`p-3 rounded-md mb-4 ${formMessage.includes('failed') ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+          {formMessage}
         </div>
       )}
 
@@ -1222,7 +1324,7 @@ const AdminSalesPurchases = () => {
               <Input label="Due Date" name="dueDate" type="date" value={newSale.dueDate} onChange={handleSaleInputChange} required={newSale.isCredit} />
             )}
             <div className="flex space-x-4">
-              <Button type="submit">Record Sale</Button>
+              <Button type="submit" disabled={loading}>Record Sale</Button>
               <Button type="button" onClick={() => setShowAddSaleForm(false)} className="bg-gray-500 hover:bg-gray-600">Cancel</Button>
             </div>
           </form>
@@ -1250,7 +1352,7 @@ const AdminSalesPurchases = () => {
               <Input label="Due Date" name="dueDate" type="date" value={newPurchase.dueDate} onChange={handlePurchaseInputChange} required={newPurchase.isCredit} />
             )}
             <div className="flex space-x-4">
-              <Button type="submit">Record Purchase</Button>
+              <Button type="submit" disabled={loading}>Record Purchase</Button>
               <Button type="button" onClick={() => setShowAddPurchaseForm(false)} className="bg-gray-500 hover:bg-gray-600">Cancel</Button>
             </div>
           </form>
@@ -1313,14 +1415,17 @@ const AdminSalesPurchases = () => {
 };
 
 const AdminOrderManagement = () => {
-  const { orders, updateOrderStatus, getProductById, getUserById, currentUser } = useContext(AppContext);
+  const { orders, updateOrderStatus, getProductById, getUserById, currentUser, loading, error } = useContext(AppContext);
   const [message, setMessage] = useState('');
 
-  const handleStatusChange = (orderId, newStatus) => {
-    updateOrderStatus(orderId, newStatus);
-    setMessage(`Order ${orderId} status updated to ${newStatus}.`);
+  const handleStatusChange = async (orderId, newStatus) => {
+    try {
+      await updateOrderStatus(orderId, newStatus);
+      setMessage(`Order ${orderId} status updated to ${newStatus}.`);
+    } catch (err) {
+      setMessage(`Failed to update order status: ${err.message}`);
+    }
     setTimeout(() => setMessage(''), 5000); // Clear message after 5 seconds
-    // In a real app, send email/SMS notification here
   };
 
   const canManage = currentUser && ['admin', 'manager', 'customer-support'].includes(currentUser.role);
@@ -1329,13 +1434,16 @@ const AdminOrderManagement = () => {
     return <p className="text-center text-red-500 p-8">Access Denied. Only Admin or Manager can access Order Management.</p>;
   }
 
+  if (loading) return <p className="text-center p-8">Loading orders...</p>;
+  if (error) return <p className="text-center p-8 text-red-500">Error loading orders: {error}</p>;
+
   return (
     <div className="p-4 md:p-8">
       <h2 className="text-3xl font-bold mb-6 text-gray-900">Client Order Management</h2>
 
       <Card title="All Client Orders">
         {message && (
-          <div className="p-3 bg-green-100 text-green-700 rounded-md mb-4">
+          <div className={`p-3 rounded-md mb-4 ${message.includes('Failed') ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
             {message}
           </div>
         )}
@@ -1379,6 +1487,7 @@ const AdminOrderManagement = () => {
                       { value: 'Rejected', label: 'Rejected' },
                     ]}
                     className="py-1 px-2 text-sm"
+                    disabled={loading}
                   />
                 </td>
               </tr>
@@ -1391,12 +1500,12 @@ const AdminOrderManagement = () => {
 };
 
 const AdminExpensesTracking = () => {
-  const { expenses, addExpense, currentUser } = useContext(AppContext);
+  const { expenses, addExpense, currentUser, loading, error } = useContext(AppContext);
   const [showAddForm, setShowAddForm] = useState(false);
   const [newExpense, setNewExpense] = useState({
     description: '', category: 'Transport', amount: '', date: new Date().toISOString().split('T')[0]
   });
-  const [message, setMessage] = useState('');
+  const [formMessage, setFormMessage] = useState('');
 
   const expenseCategories = [
     { value: 'Transport', label: 'Transport' },
@@ -1414,13 +1523,18 @@ const AdminExpensesTracking = () => {
     setNewExpense(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    addExpense({ ...newExpense, amount: parseFloat(newExpense.amount) });
-    setMessage('Expense added successfully!');
-    setNewExpense({ description: '', category: 'Transport', amount: '', date: new Date().toISOString().split('T')[0] });
-    setShowAddForm(false);
-    setTimeout(() => setMessage(''), 5000); // Clear message after 5 seconds
+    setFormMessage('');
+    try {
+      await addExpense({ ...newExpense, amount: parseFloat(newExpense.amount) });
+      setFormMessage('Expense added successfully!');
+      setNewExpense({ description: '', category: 'Transport', amount: '', date: new Date().toISOString().split('T')[0] });
+      setShowAddForm(false);
+    } catch (err) {
+      setFormMessage(`Failed to add expense: ${err.message}`);
+    }
+    setTimeout(() => setFormMessage(''), 5000);
   };
 
   const canManage = currentUser && ['admin', 'manager', 'accountant'].includes(currentUser.role);
@@ -1428,6 +1542,9 @@ const AdminExpensesTracking = () => {
   if (!canManage) {
     return <p className="text-center text-red-500 p-8">Access Denied. Only Admin, Manager or Accountant can access Expenses.</p>;
   }
+
+  if (loading) return <p className="text-center p-8">Loading expenses...</p>;
+  if (error) return <p className="text-center p-8 text-red-500">Error loading expenses: {error}</p>;
 
   // Group expenses by category for summary
   const expensesByCategory = expenses.reduce((acc, expense) => {
@@ -1440,12 +1557,12 @@ const AdminExpensesTracking = () => {
       <h2 className="text-3xl font-bold mb-6 text-gray-900">Expenses Tracking</h2>
 
       <div className="mb-6">
-        <Button onClick={() => setShowAddForm(true)}>Add New Expense</Button>
+        <Button onClick={() => { setShowAddForm(true); setFormMessage(''); }}>Add New Expense</Button>
       </div>
 
-      {message && (
-        <div className="p-3 bg-green-100 text-green-700 rounded-md mb-4">
-          {message}
+      {formMessage && (
+        <div className={`p-3 rounded-md mb-4 ${formMessage.includes('failed') ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+          {formMessage}
         </div>
       )}
 
@@ -1457,7 +1574,7 @@ const AdminExpensesTracking = () => {
             <Input label="Amount (Ksh)" name="amount" type="number" value={newExpense.amount} onChange={handleInputChange} min="0" required />
             <Input label="Date" name="date" type="date" value={newExpense.date} onChange={handleInputChange} required />
             <div className="flex space-x-4">
-              <Button type="submit">Add Expense</Button>
+              <Button type="submit" disabled={loading}>Add Expense</Button>
               <Button type="button" onClick={() => setShowAddForm(false)} className="bg-gray-500 hover:bg-gray-600">Cancel</Button>
             </div>
           </form>
@@ -1499,7 +1616,7 @@ const AdminExpensesTracking = () => {
 };
 
 const AdminAssetsLiabilitiesDebt = () => {
-  const { assets, addAsset, calculateCurrentValue, liabilities, addLiability, getCustomerDebts, getSupplierDebts, markCustomerDebtPaid, markSupplierDebtPaid, currentUser } = useContext(AppContext);
+  const { assets, addAsset, calculateCurrentValue, liabilities, addLiability, getCustomerDebts, getSupplierDebts, markCustomerDebtPaid, markSupplierDebtPaid, currentUser, loading, error } = useContext(AppContext);
   const [showAddAssetForm, setShowAddAssetForm] = useState(false);
   const [newAsset, setNewAsset] = useState({
     name: '', purchaseValue: '', purchaseDate: new Date().toISOString().split('T')[0], depreciationRate: ''
@@ -1508,10 +1625,7 @@ const AdminAssetsLiabilitiesDebt = () => {
   const [newLiability, setNewLiability] = useState({
     name: '', type: 'Loan', amount: '', interestRate: '', repaymentDate: '', dueDate: ''
   });
-  const [assetMessage, setAssetMessage] = useState('');
-  const [liabilityMessage, setLiabilityMessage] = useState('');
-  const [customerDebtMessage, setCustomerDebtMessage] = useState('');
-  const [supplierDebtMessage, setSupplierDebtMessage] = useState('');
+  const [formMessage, setFormMessage] = useState('');
 
   const customerDebts = getCustomerDebts();
   const supplierDebts = getSupplierDebts();
@@ -1521,17 +1635,22 @@ const AdminAssetsLiabilitiesDebt = () => {
     setNewAsset(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleAssetSubmit = (e) => {
+  const handleAssetSubmit = async (e) => {
     e.preventDefault();
-    addAsset({
-      ...newAsset,
-      purchaseValue: parseFloat(newAsset.purchaseValue),
-      depreciationRate: parseFloat(newAsset.depreciationRate)
-    });
-    setAssetMessage('Asset added successfully!');
-    setNewAsset({ name: '', purchaseValue: '', purchaseDate: new Date().toISOString().split('T')[0], depreciationRate: '' });
-    setShowAddAssetForm(false);
-    setTimeout(() => setAssetMessage(''), 5000); // Clear message after 5 seconds
+    setFormMessage('');
+    try {
+      await addAsset({
+        ...newAsset,
+        purchaseValue: parseFloat(newAsset.purchaseValue),
+        depreciationRate: parseFloat(newAsset.depreciationRate)
+      });
+      setFormMessage('Asset added successfully!');
+      setNewAsset({ name: '', purchaseValue: '', purchaseDate: new Date().toISOString().split('T')[0], depreciationRate: '' });
+      setShowAddAssetForm(false);
+    } catch (err) {
+      setFormMessage(`Failed to add asset: ${err.message}`);
+    }
+    setTimeout(() => setFormMessage(''), 5000);
   };
 
   const handleLiabilityInputChange = (e) => {
@@ -1539,32 +1658,45 @@ const AdminAssetsLiabilitiesDebt = () => {
     setNewLiability(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleLiabilitySubmit = (e) => {
+  const handleLiabilitySubmit = async (e) => {
     e.preventDefault();
-    addLiability({
-      ...newLiability,
-      amount: parseFloat(newLiability.amount),
-      interestRate: newLiability.type === 'Loan' ? parseFloat(newLiability.interestRate) : undefined,
-    });
-    setLiabilityMessage('Liability added successfully!');
-    setNewLiability({ name: '', type: 'Loan', amount: '', interestRate: '', repaymentDate: '', dueDate: '' });
-    setShowAddLiabilityForm(false);
-    setTimeout(() => setLiabilityMessage(''), 5000); // Clear message after 5 seconds
+    setFormMessage('');
+    try {
+      await addLiability({
+        ...newLiability,
+        amount: parseFloat(newLiability.amount),
+        interestRate: newLiability.type === 'Loan' ? parseFloat(newLiability.interestRate) : undefined,
+      });
+      setFormMessage('Liability added successfully!');
+      setNewLiability({ name: '', type: 'Loan', amount: '', interestRate: '', repaymentDate: '', dueDate: '' });
+      setShowAddLiabilityForm(false);
+    } catch (err) {
+      setFormMessage(`Failed to add liability: ${err.message}`);
+    }
+    setTimeout(() => setFormMessage(''), 5000);
   };
 
-  const handleMarkCustomerPaid = (id) => {
+  const handleMarkCustomerPaid = async (id) => {
     if (window.confirm('Are you sure you want to mark this customer debt as paid?')) {
-      markCustomerDebtPaid(id);
-      setCustomerDebtMessage('Customer debt marked as paid!');
-      setTimeout(() => setCustomerDebtMessage(''), 5000); // Clear message after 5 seconds
+      try {
+        await markCustomerDebtPaid(id);
+        setFormMessage('Customer debt marked as paid!');
+      } catch (err) {
+        setFormMessage(`Failed to mark debt paid: ${err.message}`);
+      }
+      setTimeout(() => setFormMessage(''), 5000);
     }
   };
 
-  const handleMarkSupplierPaid = (id) => {
+  const handleMarkSupplierPaid = async (id) => {
     if (window.confirm('Are you sure you want to mark this supplier debt as paid?')) {
-      markSupplierDebtPaid(id);
-      setSupplierDebtMessage('Supplier debt marked as paid!');
-      setTimeout(() => setSupplierDebtMessage(''), 5000); // Clear message after 5 seconds
+      try {
+        await markSupplierDebtPaid(id);
+        setFormMessage('Supplier debt marked as paid!');
+      } catch (err) {
+        setFormMessage(`Failed to mark debt paid: ${err.message}`);
+      }
+      setTimeout(() => setFormMessage(''), 5000);
     }
   };
 
@@ -1574,23 +1706,21 @@ const AdminAssetsLiabilitiesDebt = () => {
     return <p className="text-center text-red-500 p-8">Access Denied. Only Admin, Manager or Accountant can access Assets, Liabilities & Debt.</p>;
   }
 
+  if (loading) return <p className="text-center p-8">Loading financial data...</p>;
+  if (error) return <p className="text-center p-8 text-red-500">Error loading financial data: {error}</p>;
+
   return (
     <div className="p-4 md:p-8">
       <h2 className="text-3xl font-bold mb-6 text-gray-900">Assets, Liabilities & Debt</h2>
 
       <div className="mb-6 flex flex-wrap space-x-4 space-y-2 md:space-y-0">
-        <Button onClick={() => setShowAddAssetForm(true)}>Add New Asset</Button>
-        <Button onClick={() => setShowAddLiabilityForm(true)} className="bg-blue-600 hover:bg-blue-700">Add New Liability</Button>
+        <Button onClick={() => { setShowAddAssetForm(true); setFormMessage(''); }}>Add New Asset</Button>
+        <Button onClick={() => { setShowAddLiabilityForm(true); setFormMessage(''); }} className="bg-blue-600 hover:bg-blue-700">Add New Liability</Button>
       </div>
 
-      {assetMessage && (
-        <div className="p-3 bg-green-100 text-green-700 rounded-md mb-4">
-          {assetMessage}
-        </div>
-      )}
-      {liabilityMessage && (
-        <div className="p-3 bg-green-100 text-green-700 rounded-md mb-4">
-          {liabilityMessage}
+      {formMessage && (
+        <div className={`p-3 rounded-md mb-4 ${formMessage.includes('failed') ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+          {formMessage}
         </div>
       )}
 
@@ -1602,7 +1732,7 @@ const AdminAssetsLiabilitiesDebt = () => {
             <Input label="Purchase Date" name="purchaseDate" type="date" value={newAsset.purchaseDate} onChange={handleAssetInputChange} required />
             <Input label="Annual Depreciation Rate (e.g., 0.1 for 10%)" name="depreciationRate" type="number" step="0.01" value={newAsset.depreciationRate} onChange={handleAssetInputChange} min="0" max="1" required />
             <div className="flex space-x-4">
-              <Button type="submit">Add Asset</Button>
+              <Button type="submit" disabled={loading}>Add Asset</Button>
               <Button type="button" onClick={() => setShowAddAssetForm(false)} className="bg-gray-500 hover:bg-gray-600">Cancel</Button>
             </div>
           </form>
@@ -1628,7 +1758,7 @@ const AdminAssetsLiabilitiesDebt = () => {
               <Input label="Due Date" name="dueDate" type="date" value={newLiability.dueDate} onChange={handleLiabilityInputChange} />
             )}
             <div className="flex space-x-4">
-              <Button type="submit">Add Liability</Button>
+              <Button type="submit" disabled={loading}>Add Liability</Button>
               <Button type="button" onClick={() => setShowAddLiabilityForm(false)} className="bg-gray-500 hover:bg-gray-600">Cancel</Button>
             </div>
           </form>
@@ -1668,9 +1798,9 @@ const AdminAssetsLiabilitiesDebt = () => {
       </Card>
 
       <Card title="Debt Management">
-        {customerDebtMessage && (
-          <div className="p-3 bg-green-100 text-green-700 rounded-md mb-4">
-            {customerDebtMessage}
+        {formMessage && (
+          <div className={`p-3 rounded-md mb-4 ${formMessage.includes('failed') ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+            {formMessage}
           </div>
         )}
         <h3 className="text-xl font-semibold mb-4 text-gray-800">Customer Debts (Accounts Receivable)</h3>
@@ -1687,17 +1817,12 @@ const AdminAssetsLiabilitiesDebt = () => {
                 {debt.isOverdue ? <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">Overdue</span> : <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">Pending</span>}
               </td>
               <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                <Button onClick={() => handleMarkCustomerPaid(debt.id)} className="bg-green-600 hover:bg-green-700">Mark Paid</Button>
+                <Button onClick={() => handleMarkCustomerPaid(debt.id)} className="bg-green-600 hover:bg-green-700" disabled={loading}>Mark Paid</Button>
               </td>
             </tr>
           )}
         />
 
-        {supplierDebtMessage && (
-          <div className="p-3 bg-green-100 text-green-700 rounded-md mt-4 mb-4">
-            {supplierDebtMessage}
-          </div>
-        )}
         <h3 className="text-xl font-semibold mt-8 mb-4 text-gray-800">Business Debts (Accounts Payable)</h3>
         <Table
           headers={['Supplier Name', 'Product', 'Amount Due (Ksh)', 'Due Date', 'Status', 'Actions']}
@@ -1714,7 +1839,7 @@ const AdminAssetsLiabilitiesDebt = () => {
                 {debt.isOverdue ? <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">Overdue</span> : <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">Pending</span>}
               </td>
               <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                <Button onClick={() => handleMarkSupplierPaid(debt.id)} className="bg-green-600 hover:bg-green-700">Mark Paid</Button>
+                <Button onClick={() => handleMarkSupplierPaid(debt.id)} className="bg-green-600 hover:bg-green-700" disabled={loading}>Mark Paid</Button>
               </td>
             </tr>
           )}
@@ -1725,7 +1850,7 @@ const AdminAssetsLiabilitiesDebt = () => {
 };
 
 const AdminProfitLossReports = () => {
-  const { sales, purchases, expenses, currentUser } = useContext(AppContext);
+  const { sales, purchases, expenses, currentUser, loading, error } = useContext(AppContext);
   const [startDate, setStartDate] = useState(new Date(new Date().getFullYear(), 0, 1).toISOString().split('T')[0]);
   const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
 
@@ -1744,6 +1869,9 @@ const AdminProfitLossReports = () => {
   if (!canView) {
     return <p className="text-center text-red-500 p-8">Access Denied. Only Admin, Manager or Accountant can access P&L Reports.</p>;
   }
+
+  if (loading) return <p className="text-center p-8">Generating reports...</p>;
+  if (error) return <p className="text-center p-8 text-red-500">Error loading data for reports: {error}</p>;
 
   return (
     <div className="p-4 md:p-8">
@@ -1785,7 +1913,7 @@ const AdminProfitLossReports = () => {
 };
 
 const AdminUserRoleManagement = () => {
-  const { users, updateUserProfile, deleteUser, currentUser } = useContext(AppContext); // Removed setUsers from destructuring
+  const { users, updateUserProfile, deleteUser, currentUser, loading, error } = useContext(AppContext);
   const [editingUser, setEditingUser] = useState(null);
   const [newRole, setNewRole] = useState('');
   const [message, setMessage] = useState('');
@@ -1805,20 +1933,28 @@ const AdminUserRoleManagement = () => {
     setMessage('');
   };
 
-  const handleSaveRole = () => {
+  const handleSaveRole = async () => {
     if (editingUser) {
-      updateUserProfile(editingUser.id, { role: newRole });
-      setMessage(`Role for ${editingUser.username} updated to ${newRole}.`);
-      setEditingUser(null);
-      setNewRole('');
+      try {
+        await updateUserProfile(editingUser.id, { role: newRole });
+        setMessage(`Role for ${editingUser.username} updated to ${newRole}.`);
+        setEditingUser(null);
+        setNewRole('');
+      } catch (err) {
+        setMessage(`Failed to update role: ${err.message}`);
+      }
       setTimeout(() => setMessage(''), 3000);
     }
   };
 
-  const handleDeleteUser = (userId) => {
+  const handleDeleteUser = async (userId) => {
     if (window.confirm('Are you sure you want to delete this user? This action cannot be undone.')) {
-      deleteUser(userId);
-      setMessage('User deleted successfully!');
+      try {
+        await deleteUser(userId);
+        setMessage('User deleted successfully!');
+      } catch (err) {
+        setMessage(`Failed to delete user: ${err.message}`);
+      }
       setTimeout(() => setMessage(''), 3000);
     }
   };
@@ -1829,11 +1965,16 @@ const AdminUserRoleManagement = () => {
     return <p className="text-center text-red-500 p-8">Access Denied. Only Admin can manage User Roles.</p>;
   }
 
+  if (loading) return <p className="text-center p-8">Loading users...</p>;
+  if (error) return <p className="text-center p-8 text-red-500">Error loading users: {error}</p>;
+
   return (
     <div className="p-4 md:p-8">
       <h2 className="text-3xl font-bold mb-6 text-gray-900">User & Role Management</h2>
 
-      {message && <div className="p-3 bg-green-100 text-green-700 rounded-md mb-4">{message}</div>}
+      {message && <div className={`p-3 rounded-md mb-4 ${message.includes('failed') ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+          {message}
+        </div>}
 
       {editingUser && (
         <Card title={`Edit Role for ${editingUser.username}`} className="mb-8">
@@ -1844,7 +1985,7 @@ const AdminUserRoleManagement = () => {
             options={roles}
           />
           <div className="flex space-x-4">
-            <Button onClick={handleSaveRole}>Save Role</Button>
+            <Button onClick={handleSaveRole} disabled={loading}>Save Role</Button>
             <Button type="button" onClick={() => setEditingUser(null)} className="bg-gray-500 hover:bg-gray-600">Cancel</Button>
           </div>
         </Card>
@@ -1860,10 +2001,10 @@ const AdminUserRoleManagement = () => {
               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{user.name || 'N/A'}</td>
               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 capitalize">{user.role}</td>
               <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                <Button onClick={() => handleEditRole(user)} className="bg-indigo-600 hover:bg-indigo-700 mr-2">Edit Role</Button>
+                <Button onClick={() => handleEditRole(user)} className="bg-indigo-600 hover:bg-indigo-700 mr-2" disabled={loading}>Edit Role</Button>
                 {/* Only allow deletion for non-admin users and not the current logged-in user */}
-                {user.role !== 'admin' && user.id !== currentUser.id && (
-                  <Button onClick={() => handleDeleteUser(user.id)} className="bg-red-600 hover:bg-red-700">Delete User</Button>
+                {user.role !== 'admin' && currentUser && user.id !== currentUser.id && (
+                  <Button onClick={() => handleDeleteUser(user.id)} className="bg-red-600 hover:bg-red-700" disabled={loading}>Delete User</Button>
                 )}
               </td>
             </tr>
@@ -1877,9 +2018,17 @@ const AdminUserRoleManagement = () => {
 
 // --- Main App Component ---
 const App = () => {
-  const { currentUser, logout, currentPage, setCurrentPage } = useContext(AppContext);
+  const { currentUser, logout, currentPage, setCurrentPage, loading, error } = useContext(AppContext);
 
   const renderPage = () => {
+    // Show a global loading or error message if data is being fetched or failed
+    if (loading && currentPage !== 'login' && currentPage !== 'signup') {
+      return <p className="text-center p-8 text-blue-500">Loading application data...</p>;
+    }
+    if (error && currentPage !== 'login' && currentPage !== 'signup') {
+      return <p className="text-center p-8 text-red-500">Error loading application: {error}</p>;
+    }
+
     switch (currentPage) {
       case 'home':
         return <Homepage />;
