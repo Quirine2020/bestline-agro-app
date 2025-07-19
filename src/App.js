@@ -21,7 +21,7 @@ const AppProvider = ({ children }) => {
       name: 'DengaGard001 - Organic Concentration',
       description: '70% Formulated Garlic Consecration Organic. Mode of Action: DengaGard001 (DG) is a non-chemical insecticide resistance inoculant. DG is a natural fire prophylactic chemical release in your crop. DG offers a broad flexibility interval which is directly from sprouting to during harvest. It is a foliar fertilizer compatible with pyrethroids and conventional PPI herbicides. Application: 60ml/litre of water for foliar spray. 60ml/litre of water for foliar drenching. Storage: Keep in room temperature out of direct sunlight.',
       category: 'Pesticide', // Categorized as Pesticide (Insecticide)
-      price: 4800, // Example price
+      price: 2800, // Example price
       stock: 120,
       reorderLevel: 40,
       batch: 'DG001',
@@ -33,7 +33,7 @@ const AppProvider = ({ children }) => {
       name: 'AGROCURE - Organic Solution',
       description: 'Organic Booster: Beneficial antioxidant, plant extract, micro-organisms, organic acids and other useful bio-active substances. Mode of Action: AGROCURE is a organic plant polymer capable of de-ionizing hazardous substances (e.g., heavy metals and decomposing residues). AGROCURE is a plant extract which provides complete organisms promoter bio-de-grad. From macro molecules in the soil to macro molecules of soil organisms, AGROCURE increases disposal rates and livestock\'s wastes. Its therefore ideal for composting and leverage treatments to abiotic factors. Application (Pot Lixiviates): 100ml/50 litres of water in a pit hole every week until the plant solidifies. Then apply twice a week. Storage: Keep in room temperature out of direct sunlight.',
       category: 'Foliar Feeds', // Categorized as Foliar Feeds (Booster)
-      price: 5000, // Example price
+      price: 3500, // Example price
       stock: 90,
       reorderLevel: 30,
       batch: 'AGR001',
@@ -45,7 +45,7 @@ const AppProvider = ({ children }) => {
       name: 'PEACE GROW - Organic Solution',
       description: 'Nitrogen (N): 0.00% Phosphorus (P): 90.00% Potassium (K): 90.00%. Mode of Action: PEACE GROW is a large chain plant polymer compatible with optimum ecologically safe. PEACE GROW is a plant extract that has rich organic nutrients that provide plants which provide complete organisms and bio-available. The plant is overcomes stress, by the deficiency in other biotic and abiotic factors. Application (Spraying): 1ml per litre of water. Drenching: 2ml per litre of water. Storage: Keep in room temperature out of direct sunlight. Precaution: Shake well before use.',
       category: 'Foliar Feeds', // Categorized as Foliar Feeds (N-P-K)
-      price: 2800, // Example price
+      price: 4200, // Example price
       stock: 110,
       reorderLevel: 35,
       batch: 'PG001',
@@ -497,7 +497,7 @@ const ProductsPage = () => {
               <p className="text-sm text-gray-500 mb-2">Category: {product.category}</p>
               <p className="text-gray-600 mb-4 line-clamp-4">{product.description}</p>
               <p className="text-green-700 font-bold text-xl mb-2">Ksh {product.price.toLocaleString()}</p>
-              <p className="text-gray-500 text-sm">Availability: {product.stock > 0 ? `${product.stock} in stock` : 'Out of Stock`}</p>
+              <p className="text-gray-500 text-sm">Availability: {product.stock > 0 ? `${product.stock} in stock` : 'Out of Stock'}</p> {/* CORRECTED LINE */}
             </div>
             {currentUser && currentUser.role === 'client' && product.stock > 0 && (
               <Button onClick={() => setCurrentPage('client-dashboard-place-order')} className="mt-4 w-full">
