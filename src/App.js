@@ -6,6 +6,7 @@ const AppContext = createContext();
 const AppProvider = ({ children }) => {
   // --- Simulated Data Storage (In-memory for demonstration) ---
   const [currentUser, setCurrentUser] = useState(null); // { id, username, role, name, farmType, location, contactInfo }
+  // eslint-disable-next-line no-unused-vars
   const [users, setUsers] = useState([
     { id: 'admin-1', username: 'admin', password: 'password', role: 'admin', name: 'Admin User', farmType: '', location: '', contactInfo: '' },
     { id: 'manager-1', username: 'manager', password: 'password', role: 'manager', name: 'Manager User', farmType: '', location: '', contactInfo: '' },
